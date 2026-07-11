@@ -1,0 +1,198 @@
+'use client'
+import { useEffect } from 'react'
+import { useApp, apiFetch } from '@/lib/store'
+import { Login } from './login'
+import { Dashboard } from './dashboard'
+import { EscanerFacturas } from './escaner-facturas'
+import { LibroDiario } from './libro-diario'
+import { LibroMayor } from './libro-mayor'
+import { Balance } from './balance'
+import { LibroCompras } from './libro-compras'
+import { LibroVentas } from './libro-ventas'
+import { DeclaracionIVA } from './declaracion-iva'
+import { EstadosFinancieros } from './estados-financieros'
+import { Ejercicios } from './ejercicios'
+import { ReporteISLR } from './reporte-islr'
+import { Conciliacion } from './conciliacion'
+import { PlanCuentas } from './plan-cuentas'
+import { ISLRPanel } from './islr-panel'
+import { Empresas } from './empresas'
+import { TasaCambio } from './tasa-cambio'
+import { Exportar } from './exportar'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  LayoutDashboard, ScanLine, BookOpen, BookText, Scale,
+  ListTree, Building2, DollarSign, Download, LogOut, BookOpenCheck,
+  ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
+  Calendar, Landmark, FileSpreadsheet,
+} from 'lucide-react'
+import { toast } from 'sonner'
+
+const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
+  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Principal' },
+  { key: 'escaner', label: 'Escanear Factura', icon: ScanLine, section: 'Operación' },
+  { key: 'diario', label: 'Libro Diario', icon: BookText, section: 'Contabilidad' },
+  { key: 'mayor', label: 'Libro Mayor', icon: BookOpen },
+  { key: 'balance', label: 'Balance Comprobación', icon: Scale },
+  { key: 'conciliacion', label: 'Conciliación Bancaria', icon: Landmark },
+  { key: 'declaracion-iva', label: 'Declaración IVA', icon: FileBarChart, section: 'Declaraciones' },
+  { key: 'estados-financieros', label: 'Estados Financieros', icon: PieChart },
+  { key: 'ejercicios', label: 'Ejercicios Fiscales', icon: Calendar, section: 'Cierre Anual' },
+  { key: 'libro-compras', label: 'Libro de Compras', icon: ShoppingCart, section: 'Libros SENIAT' },
+  { key: 'libro-ventas', label: 'Libro de Ventas', icon: FileText },
+  { key: 'islr', label: 'Retenciones ISLR', icon: Receipt, section: 'Reportes ISLR' },
+  { key: 'reporte-islr', label: 'Reporte Mensual ISLR', icon: FileSpreadsheet },
+  { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
+  { key: 'empresas', label: 'Empresas', icon: Building2 },
+  { key: 'tasa', label: 'Tasa de Cambio', icon: DollarSign },
+  { key: 'exportar', label: 'Exportar', icon: Download },
+]
+
+export function AppShell() {
+  const {
+    user, empresaActiva, empresas, tab, setTab, setUser, setEmpresaActiva, setEmpresas, logout,
+  } = useApp()
+
+  // Verificar sesión al montar
+  useEffect(() => {
+    apiFetch('/api/auth/me').then((r) => {
+      if (r.ok && r.data?.user) {
+        setUser(r.data.user)
+        setEmpresaActiva(r.data.empresaActiva)
+        setEmpresas(r.data.empresas || [])
+      }
+    })
+  }, [])
+
+  async function handleLogout() {
+    await apiFetch('/api/auth/logout', { method: 'POST' })
+    logout()
+    toast.success('Sesión cerrada')
+  }
+
+  if (!user) return <Login />
+
+  // Agrupar por sección
+  const sections: Record<string, typeof NAV> = {}
+  NAV.forEach((item) => {
+    const s = item.section || (sections[''] ? '' : '')
+    if (!sections[s]) sections[s] = []
+    sections[s].push(item)
+  })
+
+  const initials = user.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || user.email.slice(0, 2).toUpperCase()
+
+  return (
+    <div className="min-h-screen flex bg-slate-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 sticky top-0 h-screen">
+        {/* Logo */}
+        <div className="p-4 border-b border-slate-200">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow">
+              <BookOpenCheck className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-800 leading-tight">ContaVE</div>
+              <div className="text-xs text-slate-500 leading-tight">Contabilidad VE</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Empresa activa */}
+        {empresaActiva && (
+          <div className="p-3 border-b border-slate-200 bg-slate-50">
+            <div className="text-xs text-slate-500 mb-1">Empresa activa</div>
+            <div className="text-sm font-semibold text-slate-800 truncate">{empresaActiva.nombre}</div>
+            <div className="text-xs text-slate-500">RIF: {empresaActiva.rif}</div>
+          </div>
+        )}
+
+        {/* Navegación */}
+        <nav className="flex-1 overflow-y-auto p-2 space-y-3">
+          {Object.entries(sections).map(([section, items]) => (
+            <div key={section || '_'}>
+              {section && (
+                <div className="px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  {section}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {items.map((item) => {
+                  const Icon = item.icon
+                  const active = tab === item.key
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setTab(item.key)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
+                        active
+                          ? 'bg-emerald-100 text-emerald-700 font-medium'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* Usuario */}
+        <div className="p-3 border-t border-slate-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback className={`text-xs ${user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {user.role === 'SUPER_ADMIN' ? '👑' : initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-slate-800 truncate">{user.name}</div>
+              <div className="text-xs text-slate-500 truncate">{user.email}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant={user.role === 'SUPER_ADMIN' ? 'default' : 'outline'} className={`text-xs ${user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-800 border-amber-300' : ''}`}>
+              {user.role === 'SUPER_ADMIN' && <Crown className="w-3 h-3 mr-1" />}
+              {user.role}
+            </Badge>
+            <Button variant="ghost" size="sm" className="ml-auto text-slate-500" onClick={handleLogout}>
+              <LogOut className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      </aside>
+
+      {/* Contenido principal */}
+      <main className="flex-1 overflow-x-hidden">
+        <div className="p-6 max-w-7xl mx-auto">
+          {tab === 'dashboard' && <Dashboard />}
+          {tab === 'escaner' && <EscanerFacturas />}
+          {tab === 'diario' && <LibroDiario />}
+          {tab === 'mayor' && <LibroMayor />}
+          {tab === 'balance' && <Balance />}
+          {tab === 'conciliacion' && <Conciliacion />}
+          {tab === 'declaracion-iva' && <DeclaracionIVA />}
+          {tab === 'estados-financieros' && <EstadosFinancieros />}
+          {tab === 'ejercicios' && <Ejercicios />}
+          {tab === 'libro-compras' && <LibroCompras />}
+          {tab === 'libro-ventas' && <LibroVentas />}
+          {tab === 'islr' && <ISLRPanel />}
+          {tab === 'reporte-islr' && <ReporteISLR />}
+          {tab === 'cuentas' && <PlanCuentas />}
+          {tab === 'empresas' && <Empresas />}
+          {tab === 'tasa' && <TasaCambio />}
+          {tab === 'exportar' && <Exportar />}
+        </div>
+        <footer className="mt-auto py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
+          ContaVE · Contabilidad venezolana · IVA 16% + Retenciones IVA e ISLR + Libros SENIAT · Plan VEN-NIF Pymes · Hecho para el mercado venezolano
+        </footer>
+      </main>
+    </div>
+  )
+}

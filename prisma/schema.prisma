@@ -1,0 +1,261 @@
+// ContaVE - Schema para PostgreSQL (Supabase)
+// Este schema es idéntico al de SQLite pero usando el provider postgresql
+// Para usar con Supabase:
+// 1. Copia este archivo a prisma/schema.prisma (reemplazando el actual)
+// 2. Configura DATABASE_URL en .env con tu string de conexión de Supabase
+// 3. Ejecuta: bun run db:push
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")  // Opcional: para migraciones directas
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  USUARIOS Y EMPRESAS (multi-tenant con roles)
+// ───────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("CONTADOR") // SUPER_ADMIN, ADMIN, CONTADOR, AUXILIAR
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  empresas     UserEmpresa[]
+  facturas     Factura[]
+  asientos     Asiento[]
+  sesiones     Sesion[]
+}
+
+model Empresa {
+  id            String   @id @default(cuid())
+  nombre        String
+  rif           String   @unique
+  direccion     String?
+  telefono      String?
+  email         String?
+  esAgenteRetencionIVA Boolean @default(false)
+  esContribuyenteEspecial Boolean @default(false)
+  alicuotaIVA            Float   @default(16.0)
+  monedaFuncional String  @default("VES")
+  cuentas        Cuenta[]
+  facturas       Factura[]
+  asientos       Asiento[]
+  tasaCambios    TasaCambio[]
+  usuarios       UserEmpresa[]
+  ejercicios     Ejercicio[]
+  conciliaciones ConciliacionBanco[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model UserEmpresa {
+  id        String   @id @default(cuid())
+  userId    String
+  empresaId String
+  rol       String   @default("CONTADOR")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, empresaId])
+}
+
+model Sesion {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Cuenta {
+  id         String   @id @default(cuid())
+  empresaId  String
+  codigo     String
+  nombre     String
+  tipo       String
+  naturaleza String
+  nivel      Int      @default(4)
+  padreId    String?
+  imputable  Boolean  @default(true)
+  uso        String?
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  lineas     AsientoLinea[]
+  conciliaciones ConciliacionBanco[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId, uso])
+}
+
+model TasaCambio {
+  id         String   @id @default(cuid())
+  empresaId  String
+  fecha      DateTime
+  monedaRef  String   @default("USD")
+  tasa       Float
+  fuente     String   @default("BCV")
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([empresaId, fecha, monedaRef])
+}
+
+model Factura {
+  id              String   @id @default(cuid())
+  empresaId       String
+  userId          String
+  tipo            String
+  rifContraparte  String
+  nombreContraparte String
+  numeroFactura   String?
+  numeroControl   String?
+  ncf             String?
+  fechaEmision    DateTime
+  fechaRegistro   DateTime @default(now())
+  monedaOriginal  String   @default("VES")
+  baseImponible   Float    @default(0)
+  montoExento     Float    @default(0)
+  montoExonerado  Float    @default(0)
+  alicuotaIVA     Float    @default(16.0)
+  montoIVA        Float    @default(0)
+  porcentajeRetencionIVA Float?
+  montoRetencionIVA      Float?
+  tarifaISLRCodigo       String?
+  porcentajeRetencionISLR Float?
+  baseRetencionISLR      Float?
+  montoRetencionISLR     Float?
+  subtotal        Float    @default(0)
+  total           Float    @default(0)
+  totalRetencion  Float    @default(0)
+  totalAPagar     Float    @default(0)
+  tasaCambio      Float?
+  totalMonedaFuncional Float @default(0)
+  descripcion     String?
+  imagenUrl       String?
+  imagenData      String?
+  asiento         Asiento?
+  estado          String   @default("REGISTRADA")
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario         User     @relation(fields: [userId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([empresaId, tipo, fechaEmision])
+  @@index([empresaId, ncf])
+}
+
+model Asiento {
+  id          String   @id @default(cuid())
+  empresaId   String
+  userId      String
+  numero      Int
+  fecha       DateTime
+  descripcion String
+  referencia  String?
+  tipo        String   @default("MANUAL")
+  facturaId   String?  @unique
+  fuente      String   @default("manual")
+  lineas      AsientoLinea[]
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario     User     @relation(fields: [userId], references: [id])
+  factura     Factura? @relation(fields: [facturaId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([empresaId, fecha])
+  @@index([empresaId, numero])
+}
+
+model AsientoLinea {
+  id         String   @id @default(cuid())
+  asientoId  String
+  cuentaId   String
+  cuenta     Cuenta   @relation(fields: [cuentaId], references: [id])
+  debit      Float    @default(0)
+  credit     Float    @default(0)
+  descripcion String?
+  asiento    Asiento  @relation(fields: [asientoId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([asientoId])
+  @@index([cuentaId])
+}
+
+model Ejercicio {
+  id          String   @id @default(cuid())
+  empresaId   String
+  ano         Int
+  estado      String   @default("ABIERTO")
+  fechaInicio DateTime
+  fechaCierre DateTime
+  asientoCierreId   String?
+  asientoAperturaId String?
+  utilidadNeta       Float?
+  islrEstimado       Float?
+  cerradoPor         String?
+  cerradoEn          DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, ano])
+  @@index([empresaId, estado])
+}
+
+model ConciliacionBanco {
+  id            String   @id @default(cuid())
+  empresaId     String
+  cuentaId      String
+  mes           Int
+  ano           Int
+  saldoInicialLibro   Float @default(0)
+  saldoInicialBanco   Float @default(0)
+  saldoFinalLibro     Float @default(0)
+  saldoFinalBanco     Float @default(0)
+  depositosEnTransito Float @default(0)
+  chequesPendientes   Float @default(0)
+  notasCredito        Float @default(0)
+  notasDebito         Float @default(0)
+  estado        String   @default("PENDIENTE")
+  diferencia    Float    @default(0)
+  notas         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  empresa       Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  cuenta        Cuenta          @relation(fields: [cuentaId], references: [id])
+  movimientos   MovimientoBanco[]
+
+  @@unique([empresaId, cuentaId, mes, ano])
+  @@index([empresaId, mes, ano])
+}
+
+model MovimientoBanco {
+  id              String   @id @default(cuid())
+  conciliacionId  String
+  fecha           DateTime
+  descripcion     String
+  referencia      String?
+  monto           Float
+  tipo            String
+  conciliado      Boolean  @default(false)
+  asientoLineaId  String?
+  createdAt       DateTime @default(now())
+
+  conciliacion    ConciliacionBanco @relation(fields: [conciliacionId], references: [id], onDelete: Cascade)
+
+  @@index([conciliacionId])
+  @@index([conciliacionId, conciliado])
+}
