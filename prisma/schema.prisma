@@ -20,18 +20,20 @@ datasource db {
 // ───────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String        @id @default(cuid())
+  email        String        @unique
   name         String
   passwordHash String
-  role         String   @default("CONTADOR") // SUPER_ADMIN, ADMIN, CONTADOR, AUXILIAR
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  role         String        @default("CONTADOR") // SUPER_ADMIN, ADMIN, CONTADOR, AUXILIAR
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   empresas     UserEmpresa[]
   facturas     Factura[]
   asientos     Asiento[]
   sesiones     Sesion[]
+
+  @@map("user")
 }
 
 model Empresa {
