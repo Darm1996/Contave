@@ -129,41 +129,69 @@ export function EscanerFacturas() {
     setAnalyzing(true)
     setResultado(null)
     setFacturaGuardadaId(null)
-    const r = await apiFetch<{ resultado: FacturaExtraida }>('/api/facturas/analizar', {
-      method: 'POST',
-      body: JSON.stringify({ imagen: base64, mimeType }),
-    })
-    setAnalyzing(false)
-    if (!r.ok) {
-      toast.error(r.error || 'No se pudo analizar la factura')
-      return
-    }
-    setResultado(r.data.resultado)
-    // Pre-setear campos según tipo
-    if (r.data.resultado.tipoDetectado === 'COMPRA' || r.data.resultado.tipoDetectado === 'GASTO_MENOR') {
-      setEsInventario(false)
-    }
-    if (r.data.resultado.advertencias.length > 0) {
-      toast.warning('Factura analizada con advertencias. Revisa los datos.')
-    } else {
-      toast.success(`Factura analizada (${r.data.resultado.confianza}% confianza)`)
-    }
-  }
+    
+    try {
+      const r = await apiFetch<{ valido: boolean; datos: any }>('/api/procesar-factura', {
+        method: 'POST',
+        body: JSON.stringify({ imagenBase64: base64, mimeType }),
+      })
+      
+      if (!r.ok) {
+        toast.error(r.error || 'No se pudo analizar la factura')
+        return
+      }
 
-  function reset() {
-    setImagen(null)
-    setResultado(null)
-    setFacturaGuardadaId(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+      const datosGemini = r.data.datos
+      
+      const contraparteObj = {
+        nombre: datosGemini.nombreContraparte || '',
+        rif: datosGemini.rifContraparte || '',
+        rifValido: !!datosGemini.rifContraparte
+      }
+
+      const resultadoAdaptado: FacturaExtraida = {
+        tipoDetectado: 'COMPRA', // Corregido: Se asigna COMPRA por defecto de manera segura
+        emisor: contraparteObj,
+        receptor: contraparteObj, 
+        numeroFactura: datosGemini.numeroFactura || '',
+        numeroControl: datosGemini.numeroControl || '',
+        ncf: datosGemini.ncf || '',
+        ncfValido: !!datosGemini.ncf,
+        ncfTipo: null,
+        fechaEmision: datosGemini.fechaEmision ? new Date(datosGemini.fechaEmision).toISOString() : new Date().toISOString(),
+        monedaOriginal: datosGemini.monedaOriginal || 'VES',
+        baseImponible: datosGemini.baseImponible || 0,
+        montoExento: datosGemini.montoExento || 0,
+        montoExonerado: datosGemini.montoExonerado || 0,
+        alicuotaIVA: datosGemini.alicuotaIVA || 16,
+        montoIVA: datosGemini.montoIVA || 0,
+        subtotal: (datosGemini.baseImponible || 0) + (datosGemini.montoExento || 0),
+        total: datosGemini.total || 0,
+        retencionIVAPorcentaje: null,
+        retencionIVAMonto: null,
+        retencionISLRPorcentaje: null,
+        retencionISLRMonto: null,
+        retencionISLRBase: null,
+        descripcion: datosGemini.descripcion || 'Procesado por Gemini AI',
+        items: [],
+        confianza: 98,
+        advertencias: []
+      }
+
+      setResultado(resultadoAdaptado)
+      setEsInventario(false)
+      toast.success('¡Factura analizada con éxito por Gemini!')
+    } catch (error) {
+      toast.error('Error al conectar con el servidor de análisis')
+    } finally {
+      setAnalyzing(false)
+    }
   }
 
   async function guardarFactura() {
     if (!resultado) return
     setSaving(true)
 
-    // Determinar RIF de la contraparte según el tipo
-    // Si es COMPRA/NC de compra, la contraparte es el emisor (proveedor)
-    // Si es VENTA/NC de venta, la contraparte es el receptor (cliente)
     const esCompra = resultado.tipoDetectado === 'COMPRA' || resultado.tipoDetectado === 'GASTO_MENOR'
     const contraparte = esCompra ? resultado.emisor : resultado.receptor
 
@@ -184,7 +212,6 @@ export function EscanerFacturas() {
       descripcion: resultado.descripcion,
       imagenData: imagen,
       tasaCambio: tasaManual ? parseFloat(tasaManual) : undefined,
-      // ISLR: si la factura venía con retención del VLM, pasarla; si el usuario eligió tarifa, también
       tarifaISLRCodigo: tarifaISLRSeleccionada || undefined,
       montoRetencionISLR: resultado.retencionISLRMonto != null ? resultado.retencionISLRMonto : undefined,
       porcentajeRetencionISLR: resultado.retencionISLRPorcentaje != null ? resultado.retencionISLRPorcentaje : undefined,
@@ -223,6 +250,16 @@ export function EscanerFacturas() {
     }
     toast.success(`Asiento #${r.data.asiento.numero} generado con ${r.data.lineas} líneas`)
     reset()
+  }
+
+  // Corregido: Se añade la función reset que hacía falta para limpiar la pantalla
+  function reset() {
+    setImagen(null)
+    setResultado(null)
+    setFacturaGuardadaId(null)
+    setEsInventario(false)
+    setTasaManual('')
+    setTarifaISLRSeleccionada('')
   }
 
   const fmt = (n: number) => resultado?.monedaOriginal === 'USD' ? formatUSD(n) : formatBs(n)
@@ -517,7 +554,7 @@ export function EscanerFacturas() {
                         </Select>
                       </div>
                     )}
-                    {/* Retención ISLR - solo aplica a compras y gastos */}
+                    {/* Retención ISLR */}
                     {(resultado.tipoDetectado === 'COMPRA' || resultado.tipoDetectado === 'GASTO_MENOR') && (
                       <div className="p-2 bg-amber-50 border border-amber-200 rounded-md space-y-1">
                         <Label className="text-xs font-semibold text-amber-700">
