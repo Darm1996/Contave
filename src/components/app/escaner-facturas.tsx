@@ -46,35 +46,6 @@ interface FacturaExtraida {
   advertencias: string[]
 }
 
-const VACIO: FacturaExtraida = {
-  tipoDetectado: 'COMPRA',
-  emisor: { nombre: '', rif: '', rifValido: false },
-  receptor: { nombre: '', rif: '', rifValido: false },
-  numeroFactura: '',
-  numeroControl: '',
-  ncf: '',
-  ncfValido: false,
-  ncfTipo: null,
-  fechaEmision: new Date().toISOString(),
-  monedaOriginal: 'VES',
-  baseImponible: 0,
-  montoExento: 0,
-  montoExonerado: 0,
-  alicuotaIVA: 16,
-  montoIVA: 0,
-  subtotal: 0,
-  total: 0,
-  retencionIVAPorcentaje: null,
-  retencionIVAMonto: null,
-  retencionISLRPorcentaje: null,
-  retencionISLRMonto: null,
-  retencionISLRBase: null,
-  descripcion: '',
-  items: [],
-  confianza: 0,
-  advertencias: [],
-}
-
 const USOS_GASTO = [
   { value: 'GASTO_SERVICIOS_BASICOS', label: 'Servicios básicos (luz, agua)' },
   { value: 'GASTO_TELEFONO', label: 'Teléfono e internet' },
@@ -90,7 +61,7 @@ const USOS_GASTO = [
 ]
 
 export function EscanerFacturas() {
-  const { empresaActiva, user } = useApp()
+  const { empresaActiva } = useApp()
   const [imagen, setImagen] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -102,6 +73,7 @@ export function EscanerFacturas() {
   const [clienteRetieneIVA, setClienteRetieneIVA] = useState(false)
   const [aplicaA, setAplicaA] = useState<'COMPRA' | 'VENTA'>('COMPRA')
   const [tasaManual, setTasaManual] = useState<string>('')
+  
   // ISLR
   const [tarifasISLR, setTarifasISLR] = useState<Array<{codigo: string; concepto: string; porcentaje: number; baseImponiblePct: number; usoGasto: string}>>([])
   const [tarifaISLRSeleccionada, setTarifaISLRSeleccionada] = useState('')
@@ -114,6 +86,54 @@ export function EscanerFacturas() {
       .then((d) => { if (d.tarifas) setTarifasISLR(d.tarifas) })
       .catch(() => {})
   }, [])
+
+  // Recalcular montos y retenciones de forma automática
+  const recalcularFinanzas = (datos: FacturaExtraida, tarifaCodigo = tarifaISLRSeleccionada) => {
+    const base = datos.baseImponible || 0
+    const exento = datos.montoExento || 0
+    const exonerado = datos.montoExonerado || 0
+    const alicuota = datos.alicuotaIVA || 0
+    
+    // Calcular IVA de forma precisa
+    const montoIVA = Math.round(base * (alicuota / 100) * 100) / 100
+    const subtotal = base + exento + exonerado
+    const total = Math.round((subtotal + montoIVA) * 100) / 100
+
+    let retencionISLRBase = null
+    let retencionISLRPorcentaje = null
+    let retencionISLRMonto = null
+
+    if (tarifaCodigo) {
+      const tarifa = tarifasISLR.find(t => t.codigo === tarifaCodigo)
+      if (tarifa) {
+        retencionISLRBase = Math.round(base * tarifa.baseImponiblePct * 100) / 100
+        retencionISLRPorcentaje = tarifa.porcentaje
+        retencionISLRMonto = Math.round(retencionISLRBase * (tarifa.porcentaje / 100) * 100) / 100
+      }
+    }
+
+    return {
+      ...datos,
+      montoIVA,
+      subtotal,
+      total,
+      retencionISLRBase,
+      retencionISLRPorcentaje,
+      retencionISLRMonto
+    }
+  }
+
+  const handleMontoChange = (campo: keyof FacturaExtraida, valor: number) => {
+    if (!resultado) return
+    const copia = { ...resultado, [campo]: valor }
+    setResultado(recalcularFinanzas(copia))
+  }
+
+  const handleTarifaISLRChange = (codigo: string) => {
+    setTarifaISLRSeleccionada(codigo)
+    if (!resultado) return
+    setResultado(recalcularFinanzas(resultado, codigo))
+  }
 
   function handleFile(file: File) {
     const reader = new FileReader()
@@ -150,7 +170,7 @@ export function EscanerFacturas() {
       }
 
       const resultadoAdaptado: FacturaExtraida = {
-        tipoDetectado: 'COMPRA', // Corregido: Se asigna COMPRA por defecto de manera segura
+        tipoDetectado: datosGemini.tipoDetectado || 'COMPRA', 
         emisor: contraparteObj,
         receptor: contraparteObj, 
         numeroFactura: datosGemini.numeroFactura || '',
@@ -165,7 +185,7 @@ export function EscanerFacturas() {
         montoExonerado: datosGemini.montoExonerado || 0,
         alicuotaIVA: datosGemini.alicuotaIVA || 16,
         montoIVA: datosGemini.montoIVA || 0,
-        subtotal: (datosGemini.baseImponible || 0) + (datosGemini.montoExento || 0),
+        subtotal: 0,
         total: datosGemini.total || 0,
         retencionIVAPorcentaje: null,
         retencionIVAMonto: null,
@@ -173,12 +193,12 @@ export function EscanerFacturas() {
         retencionISLRMonto: null,
         retencionISLRBase: null,
         descripcion: datosGemini.descripcion || 'Procesado por Gemini AI',
-        items: [],
-        confianza: 98,
-        advertencias: []
+        items: datosGemini.items || [],
+        confianza: datosGemini.confianza || 95,
+        advertencias: datosGemini.advertencias || []
       }
 
-      setResultado(resultadoAdaptado)
+      setResultado(recalcularFinanzas(resultadoAdaptado))
       setEsInventario(false)
       toast.success('¡Factura analizada con éxito por Gemini!')
     } catch (error) {
@@ -209,13 +229,14 @@ export function EscanerFacturas() {
       montoExonerado: resultado.montoExonerado,
       alicuotaIVA: resultado.alicuotaIVA,
       montoIVA: resultado.montoIVA,
+      total: resultado.total,
       descripcion: resultado.descripcion,
       imagenData: imagen,
       tasaCambio: tasaManual ? parseFloat(tasaManual) : undefined,
       tarifaISLRCodigo: tarifaISLRSeleccionada || undefined,
-      montoRetencionISLR: resultado.retencionISLRMonto != null ? resultado.retencionISLRMonto : undefined,
-      porcentajeRetencionISLR: resultado.retencionISLRPorcentaje != null ? resultado.retencionISLRPorcentaje : undefined,
-      baseRetencionISLR: resultado.retencionISLRBase != null ? resultado.retencionISLRBase : undefined,
+      montoRetencionISLR: resultado.retencionISLRMonto ?? undefined,
+      porcentajeRetencionISLR: resultado.retencionISLRPorcentaje ?? undefined,
+      baseRetencionISLR: resultado.retencionISLRBase ?? undefined,
     }
 
     const r = await apiFetch<{ factura: any }>('/api/facturas', {
@@ -252,7 +273,6 @@ export function EscanerFacturas() {
     reset()
   }
 
-  // Corregido: Se añade la función reset que hacía falta para limpiar la pantalla
   function reset() {
     setImagen(null)
     setResultado(null)
@@ -269,7 +289,7 @@ export function EscanerFacturas() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Escáner de Facturas</h2>
-          <p className="text-sm text-slate-500">Sube una foto de la factura y el sistema VLM extrae los datos automáticamente</p>
+          <p className="text-sm text-slate-500">Sube una foto de la factura y el sistema extrae los datos automáticamente</p>
         </div>
         {(resultado || imagen) && (
           <Button variant="outline" onClick={reset}>
@@ -279,7 +299,7 @@ export function EscanerFacturas() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Columna izquierda: Upload + preview */}
+        {/* Columna izquierda: Imagen / Preview */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -314,7 +334,7 @@ export function EscanerFacturas() {
                   {analyzing && (
                     <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center text-white">
                       <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                      <p className="text-sm">Analizando con VLM...</p>
+                      <p className="text-sm">Analizando con Gemini AI...</p>
                     </div>
                   )}
                 </div>
@@ -326,7 +346,7 @@ export function EscanerFacturas() {
           </CardContent>
         </Card>
 
-        {/* Columna derecha: Resultado + edición */}
+        {/* Columna derecha: Edición y Resultados */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -358,7 +378,6 @@ export function EscanerFacturas() {
             ) : (
               <ScrollArea className="h-[460px] pr-3">
                 <div className="space-y-3">
-                  {/* Advertencias */}
                   {resultado.advertencias.length > 0 && (
                     <div className="bg-amber-50 border border-amber-200 rounded-md p-3 space-y-1">
                       {resultado.advertencias.map((a, i) => (
@@ -369,7 +388,7 @@ export function EscanerFacturas() {
                     </div>
                   )}
 
-                  {/* Tipo */}
+                  {/* Tipo de Documento */}
                   <div>
                     <Label className="text-xs">Tipo de documento</Label>
                     <Select
@@ -385,7 +404,7 @@ export function EscanerFacturas() {
                     </Select>
                   </div>
 
-                  {/* Emisor */}
+                  {/* Contraparte Fiscal (Emisor/Receptor) */}
                   <div className="border-t pt-3">
                     <Label className="text-xs font-semibold text-emerald-700">
                       {resultado.tipoDetectado === 'COMPRA' || resultado.tipoDetectado === 'GASTO_MENOR'
@@ -401,7 +420,7 @@ export function EscanerFacturas() {
                       <div className="flex gap-1">
                         <Input
                           value={resultado.emisor.rif}
-                          onChange={(e) => setResultado({ ...resultado, emisor: { ...resultado.emisor, rif: e.target.value } })}
+                          onChange={(e) => setResultado({ ...resultado, emisor: { ...resultado.emisor, rif: e.target.value.toUpperCase() } })}
                           placeholder="J-XXXXXXXX-X"
                           className={resultado.emisor.rifValido ? 'border-emerald-400' : 'border-amber-400'}
                         />
@@ -410,7 +429,7 @@ export function EscanerFacturas() {
                     </div>
                   </div>
 
-                  {/* Datos fiscales */}
+                  {/* Controles Fiscales */}
                   <div className="border-t pt-3 grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">N° Factura</Label>
@@ -421,12 +440,11 @@ export function EscanerFacturas() {
                       <Input value={resultado.numeroControl} onChange={(e) => setResultado({ ...resultado, numeroControl: e.target.value })} />
                     </div>
                     <div className="col-span-2">
-                      <Label className="text-xs">NCF (N° Comprobante Fiscal)</Label>
+                      <Label className="text-xs">NCF (N° Comprobante Fiscal - Si aplica)</Label>
                       <Input
                         value={resultado.ncf}
                         onChange={(e) => setResultado({ ...resultado, ncf: e.target.value })}
                         placeholder="01001001-00012345"
-                        className={resultado.ncfValido ? 'border-emerald-400' : 'border-amber-400'}
                       />
                     </div>
                     <div>
@@ -434,12 +452,15 @@ export function EscanerFacturas() {
                       <Input
                         type="date"
                         value={new Date(resultado.fechaEmision).toISOString().slice(0, 10)}
-                        onChange={(e) => setResultado({ ...resultado, fechaEmision: new Date(e.target.value).toISOString() })}
+                        onChange={(e) => setResultado({ ...resultado, fechaEmision: e.target.value ? new Date(e.target.value).toISOString() : new Date().toISOString() })}
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Moneda</Label>
-                      <Select value={resultado.monedaOriginal} onValueChange={(v) => setResultado({ ...resultado, monedaOriginal: v })}>
+                      <Label className="text-xs">Moneda original</Label>
+                      <Select 
+                        value={resultado.monedaOriginal} 
+                        onValueChange={(v) => setResultado(recalcularFinanzas({ ...resultado, monedaOriginal: v }))}
+                      >
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="VES">Bs. (Bolívares)</SelectItem>
@@ -450,22 +471,24 @@ export function EscanerFacturas() {
                     </div>
                   </div>
 
-                  {/* Montos */}
+                  {/* Desglose de Montos Interactivos */}
                   <div className="border-t pt-3 grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-xs">Base imponible</Label>
+                      <Label className="text-xs">Base Imponible</Label>
                       <Input
                         type="number"
+                        step="0.01"
                         value={resultado.baseImponible}
-                        onChange={(e) => setResultado({ ...resultado, baseImponible: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => handleMontoChange('baseImponible', parseFloat(e.target.value) || 0)}
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Exento</Label>
+                      <Label className="text-xs">Monto Exento</Label>
                       <Input
                         type="number"
+                        step="0.01"
                         value={resultado.montoExento}
-                        onChange={(e) => setResultado({ ...resultado, montoExento: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => handleMontoChange('montoExento', parseFloat(e.target.value) || 0)}
                       />
                     </div>
                     <div>
@@ -473,42 +496,44 @@ export function EscanerFacturas() {
                       <Input
                         type="number"
                         value={resultado.alicuotaIVA}
-                        onChange={(e) => setResultado({ ...resultado, alicuotaIVA: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => handleMontoChange('alicuotaIVA', parseFloat(e.target.value) || 0)}
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Monto IVA</Label>
+                      <Label className="text-xs">Monto IVA (Auto)</Label>
                       <Input
                         type="number"
+                        readOnly
+                        className="bg-slate-50 font-medium"
                         value={resultado.montoIVA}
-                        onChange={(e) => setResultado({ ...resultado, montoIVA: parseFloat(e.target.value) || 0 })}
                       />
                     </div>
-                    <div className="col-span-2 bg-slate-50 rounded-md p-2 flex justify-between items-center">
-                      <span className="text-sm font-medium text-slate-700">Total</span>
-                      <span className="text-lg font-bold text-slate-900">{fmt(resultado.total)}</span>
+                    <div className="col-span-2 bg-slate-900 rounded-md p-3 flex justify-between items-center text-white">
+                      <span className="text-sm font-medium opacity-90">Total Factura</span>
+                      <span className="text-xl font-bold">{fmt(resultado.total)}</span>
                     </div>
                   </div>
 
-                  {/* Conversión a moneda funcional */}
+                  {/* Multimoneda / Tasa BCV */}
                   {resultado.monedaOriginal !== empresaActiva?.monedaFuncional && (
-                    <div className="border-t pt-3">
-                      <Label className="text-xs">Tasa de cambio ({resultado.monedaOriginal} → {empresaActiva?.monedaFuncional})</Label>
+                    <div className="border-t pt-3 bg-slate-50 p-2 rounded-md border">
+                      <Label className="text-xs font-medium">Tasa de cambio ({resultado.monedaOriginal} → {empresaActiva?.monedaFuncional || 'VES'})</Label>
                       <Input
                         type="number"
+                        step="0.0001"
                         value={tasaManual}
                         onChange={(e) => setTasaManual(e.target.value)}
-                        placeholder="Tasa BCV (ej. 145.50)"
+                        placeholder="Ej. 45.50 (Tasa Oficial BCV)"
                       />
                       <p className="text-xs text-slate-500 mt-1">
-                        Total en {empresaActiva?.monedaFuncional}: <strong>{formatBs(tasaManual ? resultado.total * parseFloat(tasaManual || '0') : 0)}</strong>
+                        Total Equivalente: <strong>{formatBs(tasaManual ? resultado.total * parseFloat(tasaManual) : 0)}</strong>
                       </p>
                     </div>
                   )}
 
-                  {/* Descripción */}
+                  {/* Glosa */}
                   <div className="border-t pt-3">
-                    <Label className="text-xs">Descripción / glosa</Label>
+                    <Label className="text-xs">Descripción / Glosa Asiento</Label>
                     <Textarea
                       value={resultado.descripcion}
                       onChange={(e) => setResultado({ ...resultado, descripcion: e.target.value })}
@@ -516,15 +541,17 @@ export function EscanerFacturas() {
                     />
                   </div>
 
-                  {/* Parámetros para contabilización */}
+                  {/* Parámetros de Cuentas Contables y Retenciones */}
                   <div className="border-t pt-3 space-y-2">
                     <Label className="text-xs font-semibold text-slate-700">Parámetros de contabilización</Label>
+                    
                     {resultado.tipoDetectado === 'COMPRA' && (
                       <div className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
                         <Label htmlFor="inv" className="text-xs cursor-pointer">¿Es compra de mercancía (inventario)?</Label>
                         <Switch id="inv" checked={esInventario} onCheckedChange={setEsInventario} />
                       </div>
                     )}
+                    
                     {(resultado.tipoDetectado === 'COMPRA' || resultado.tipoDetectado === 'GASTO_MENOR') && !esInventario && (
                       <div>
                         <Label className="text-xs">Categoría de gasto (cuenta contable)</Label>
@@ -536,37 +563,21 @@ export function EscanerFacturas() {
                         </Select>
                       </div>
                     )}
+
                     {resultado.tipoDetectado === 'VENTA' && (
                       <div className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
                         <Label htmlFor="ret" className="text-xs cursor-pointer">¿El cliente es agente de retención IVA?</Label>
                         <Switch id="ret" checked={clienteRetieneIVA} onCheckedChange={setClienteRetieneIVA} />
                       </div>
                     )}
-                    {(resultado.tipoDetectado === 'NOTA_CREDITO' || resultado.tipoDetectado === 'NOTA_DEBITO') && (
-                      <div>
-                        <Label className="text-xs">La nota aplica a:</Label>
-                        <Select value={aplicaA} onValueChange={(v: any) => setAplicaA(v)}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="COMPRA">Una compra</SelectItem>
-                            <SelectItem value="VENTA">Una venta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {/* Retención ISLR */}
+
+                    {/* Módulo de Retención ISLR Automatizado */}
                     {(resultado.tipoDetectado === 'COMPRA' || resultado.tipoDetectado === 'GASTO_MENOR') && (
-                      <div className="p-2 bg-amber-50 border border-amber-200 rounded-md space-y-1">
-                        <Label className="text-xs font-semibold text-amber-700">
-                          Retención ISLR (opcional)
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-md space-y-2">
+                        <Label className="text-xs font-semibold text-amber-800">
+                          Retención ISLR (Decreto 1808)
                         </Label>
-                        <p className="text-xs text-slate-600">
-                          Si el pago es por honorarios, servicios, alquileres, comisiones, etc., elige la tarifa.
-                          {resultado.retencionISLRMonto != null && (
-                            <span className="text-amber-700"> El VLM detectó: <strong>Bs. {resultado.retencionISLRMonto.toFixed(2)} ({resultado.retencionISLRPorcentaje}%)</strong></span>
-                          )}
-                        </p>
-                        <Select value={tarifaISLRSeleccionada} onValueChange={setTarifaISLRSeleccionada}>
+                        <Select value={tarifaISLRSeleccionada} onValueChange={handleTarifaISLRChange}>
                           <SelectTrigger className="bg-white">
                             <SelectValue placeholder="Sin retención ISLR (no aplica)" />
                           </SelectTrigger>
@@ -579,14 +590,21 @@ export function EscanerFacturas() {
                             ))}
                           </SelectContent>
                         </Select>
+                        
+                        {resultado.retencionISLRMonto !== null && resultado.retencionISLRMonto > 0 && (
+                          <div className="text-xs text-amber-900 bg-white/60 p-2 rounded border border-amber-200 space-y-0.5">
+                            <p>Base Cálculo: <strong>Bs. {resultado.retencionISLRBase?.toFixed(2)}</strong></p>
+                            <p>Monto a Retener: <strong className="text-red-700">Bs. {resultado.retencionISLRMonto?.toFixed(2)} ({resultado.retencionISLRPorcentaje}%)</strong></p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Acciones */}
+                  {/* Acciones de Persistencia */}
                   <div className="border-t pt-3 space-y-2">
                     {!facturaGuardadaId ? (
-                      <Button className="w-full" onClick={guardarFactura} disabled={saving}>
+                      <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" onClick={guardarFactura} disabled={saving}>
                         {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
                         Guardar factura
                       </Button>
@@ -594,9 +612,9 @@ export function EscanerFacturas() {
                       <>
                         <div className="bg-emerald-50 border border-emerald-200 rounded-md p-2 flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span className="text-xs text-emerald-700">Factura guardada. Ahora genera el asiento contable.</span>
+                          <span className="text-xs text-emerald-700">Factura guardada. Listo para procesar en el Libro correspondiente.</span>
                         </div>
-                        <Button className="w-full" onClick={contabilizar} disabled={contabilizando}>
+                        <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white" onClick={contabilizar} disabled={contabilizando}>
                           {contabilizando ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <BookPlus className="w-4 h-4 mr-1" />}
                           Contabilizar y generar asiento
                         </Button>
