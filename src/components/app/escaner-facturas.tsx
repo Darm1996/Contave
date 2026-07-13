@@ -41,7 +41,7 @@ interface FacturaExtraida {
   retencionISLRMonto: number | null
   retencionISLRBase: number | null
   descripcion: string
-  items: any[]
+  items: ItemFactura[]
   confianza: number
   advertencias: string[]
 }
