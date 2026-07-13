@@ -4,11 +4,11 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// Forzamos los parámetros del pooler para evitar conflictos de inicialización en Vercel
+// Forzamos parámetros del pooler y desactivamos el caché de consultas para Supavisor
 const baseDbUrl = process.env.DATABASE_URL || "";
 const pooledDbUrl = baseDbUrl.includes('?') 
-  ? `${baseDbUrl}&pgbouncer=true&connection_limit=1` 
-  : `${baseDbUrl}?pgbouncer=true&connection_limit=1`;
+  ? `${baseDbUrl}&pgbouncer=true&connection_limit=1&statement_cache_size=0` 
+  : `${baseDbUrl}?pgbouncer=true&connection_limit=1&statement_cache_size=0`;
 
 export const db =
   globalForPrisma.prisma ??
