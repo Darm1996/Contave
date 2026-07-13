@@ -16,6 +16,7 @@
     "super-admin": "bun run scripts/crear-super-admin.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@hookform/resolvers": "^5.1.1",
     "@prisma/client": "^6.11.1",
     "@radix-ui/react-accordion": "^1.2.11",
