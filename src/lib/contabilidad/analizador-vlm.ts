@@ -1,8 +1,8 @@
-// Analizador de facturas venezolanas usando Z-AI VLM
+// Analizador de facturas venezolanas usando Google Gemini SDK
 // Extrae: RIF emisor/receptor, NCF, número de control, fecha, montos, IVA, retención IVA, retención ISLR, etc.
 // Prompt con few-shot examples para mayor robustez con facturas reales venezolanas
 
-import ZAI from 'z-ai-web-dev-sdk'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { validarRIF, validarNCF, parseFechaVE } from './ven-nif'
 
 export interface FacturaExtraida {
@@ -44,7 +44,7 @@ export interface FacturaExtraida {
   // Retención ISLR (si aparece el comprobante de retención)
   retencionISLRPorcentaje: number | null
   retencionISLRMonto: number | null
-  retencionISLRBase: number | null // Base imponible sobre la que se calcula el ISLR (puede ser 90% del pago para honorarios, etc.)
+  retencionISLRBase: number | null // Base imponible sobre la que se calcula el ISLR
   // Detalles
   descripcion: string
   items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; total: number }>
@@ -235,177 +235,41 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido (sin markdown, sin texto adiciona
 }`
 
 export async function analizarFactura(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<FacturaExtraida> {
-  const zai = await ZAI.create()
+  const apiKey = process.env.GEMINI_API_KEY
+  
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY no está configurada en las variables de entorno.')
+  }
 
-  const response = await zai.chat.completions.createVision({
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: PROMPT_ANALISIS },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`,
-            },
-          },
-        ],
-      },
-    ],
-    thinking: { type: 'disabled' },
+  const genAI = new GoogleGenerativeAI(apiKey)
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-1.5-flash',
+    generationConfig: {
+      responseMimeType: 'application/json',
+    }
   })
 
-  const content = response.choices[0]?.message?.content || ''
+  // Eliminar el encabezado "data:image/jpeg;base64," si existe, ya que Gemini solo necesita la base64 pura
+  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "")
+
+  const imagePart = {
+    inlineData: {
+      data: base64Data,
+      mimeType,
+    },
+  }
+
+  const result = await model.generateContent([PROMPT_ANALISIS, imagePart])
+  const content = result.response.text()
+  
   return parsearRespuestaVLM(content)
 }
 
 function parsearRespuestaVLM(content: string): FacturaExtraida {
   const advertencias: string[] = []
 
-  // Limpiar el contenido (a veces viene con markdown ```json)
   let jsonStr = content.trim()
   if (jsonStr.startsWith('```')) {
-    jsonStr = jsonStr.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
-  }
+    jsonStr = jsonStr.replace(/^
+http://googleusercontent.com/immersive_entry_chip/0
 
-  let data: any
-  try {
-    data = JSON.parse(jsonStr)
-  } catch {
-    // Intentar extraer el primer objeto JSON del texto
-    const match = jsonStr.match(/\{[\s\S]*\}/)
-    if (match) {
-      try {
-        data = JSON.parse(match[0])
-      } catch (e) {
-        throw new Error('El modelo no devolvió un JSON válido: ' + content.substring(0, 200))
-      }
-    } else {
-      throw new Error('No se pudo extraer JSON de la respuesta del VLM')
-    }
-  }
-
-  // Validar y normalizar RIFs
-  const emisorRif = data.emisor?.rif || ''
-  const emisorRifCheck = emisorRif ? validarRIF(emisorRif) : { valido: false, digitoVerificadorValido: false, normalizado: '' }
-  if (emisorRif && !emisorRifCheck.digitoVerificadorValido) {
-    advertencias.push('RIF del emisor: el dígito verificador no coincide. Verifique manualmente.')
-  }
-  if (emisorRif && !emisorRifCheck.formatoValido) {
-    advertencias.push('RIF del emisor no tiene el formato esperado (LETRA-XXXXXXXX-X).')
-  }
-
-  const receptorRif = data.receptor?.rif || ''
-  const receptorRifCheck = receptorRif ? validarRIF(receptorRif) : { valido: false, digitoVerificadorValido: false, normalizado: '' }
-  if (receptorRif && !receptorRifCheck.digitoVerificadorValido) {
-    advertencias.push('RIF del receptor: el dígito verificador no coincide. Verifique manualmente.')
-  }
-
-  // Validar NCF
-  const ncf = data.ncf || ''
-  const ncfCheck = ncf ? validarNCF(ncf) : { valido: false, normalizado: '', tipo: null }
-  if (ncf && !ncfCheck.valido) {
-    advertencias.push('NCF no tiene formato válido (debe ser 8 dígitos-8 dígitos, ej: 01001001-00012345).')
-  }
-
-  // Parsear fecha
-  const fechaStr = data.fechaEmision || ''
-  const fechaDate = parseFechaVE(fechaStr)
-  if (!fechaDate) advertencias.push('No se pudo parsear la fecha de emisión. Se usará la fecha actual.')
-
-  // Validar coherencia numérica
-  const baseImponible = Number(data.baseImponible) || 0
-  const exento = Number(data.montoExento) || 0
-  const exonerado = Number(data.montoExonerado) || 0
-  const iva = Number(data.montoIVA) || 0
-  const alicuota = Number(data.alicuotaIVA) || 16
-  const total = Number(data.total) || 0
-  const subtotal = Number(data.subtotal) || (baseImponible + exento + exonerado)
-
-  // Recalcular IVA si parece incorrecto
-  const ivaEsperado = Math.round(baseImponible * alicuota) / 100
-  if (iva > 0 && Math.abs(iva - ivaEsperado) > 0.5) {
-    advertencias.push(`El IVA declarado (${iva}) no coincide con base × alícuota (${ivaEsperado}). Se usará el declarado.`)
-  }
-
-  // Validar coherencia del total
-  const totalEsperado = subtotal + iva
-  if (total > 0 && Math.abs(total - totalEsperado) > 0.5) {
-    advertencias.push(`El total declarado (${total}) no coincide con subtotal + IVA (${totalEsperado}). Se usará el declarado.`)
-  }
-
-  // Validar coherencia de retención IVA
-  const retIVAPct = data.retencionIVAPorcentaje != null ? Number(data.retencionIVAPorcentaje) : null
-  const retIVAMonto = data.retencionIVAMonto != null ? Number(data.retencionIVAMonto) : null
-  if (retIVAPct && retIVAMonto && iva > 0) {
-    const retEsperada = Math.round(iva * retIVAPct) / 100
-    if (Math.abs(retIVAMonto - retEsperada) > 0.5) {
-      advertencias.push(`La retención de IVA declarada (${retIVAMonto}) no coincide con IVA × ${retIVAPct}% (${retEsperada}). Se usará el declarado.`)
-    }
-  }
-
-  // Validar coherencia de retención ISLR
-  const retISLRPct = data.retencionISLRPorcentaje != null ? Number(data.retencionISLRPorcentaje) : null
-  const retISLRMonto = data.retencionISLRMonto != null ? Number(data.retencionISLRMonto) : null
-  const retISLRBase = data.retencionISLRBase != null ? Number(data.retencionISLRBase) : null
-  if (retISLRPct && retISLRMonto && retISLRBase) {
-    const retEsperada = Math.round(retISLRBase * retISLRPct) / 100
-    if (Math.abs(retISLRMonto - retEsperada) > 0.5) {
-      advertencias.push(`La retención de ISLR declarada (${retISLRMonto}) no coincide con base × ${retISLRPct}% (${retEsperada}). Se usará el declarado.`)
-    }
-  }
-
-  // Calcular confianza
-  let confianza = 0
-  if (emisorRif) confianza += 15
-  if (emisorRifCheck.digitoVerificadorValido) confianza += 10
-  if (receptorRif) confianza += 10
-  if (ncf) confianza += 15
-  if (ncfCheck.valido) confianza += 10
-  if (fechaDate) confianza += 10
-  if (total > 0) confianza += 15
-  if (iva > 0 || baseImponible > 0) confianza += 5
-  if (data.descripcion) confianza += 5
-  if (Array.isArray(data.items) && data.items.length > 0) confianza += 5
-  confianza = Math.min(confianza, 100)
-
-  return {
-    tipoDetectado: data.tipoDetectado || 'DESCONOCIDO',
-    emisor: {
-      nombre: data.emisor?.nombre || '',
-      rif: emisorRifCheck.normalizado || emisorRif,
-      rifValido: emisorRifCheck.formatoValido,
-      direccion: data.emisor?.direccion || undefined,
-      telefono: data.emisor?.telefono || undefined,
-    },
-    receptor: {
-      nombre: data.receptor?.nombre || '',
-      rif: receptorRifCheck.normalizado || receptorRif,
-      rifValido: receptorRifCheck.formatoValido,
-    },
-    numeroFactura: data.numeroFactura || '',
-    numeroControl: data.numeroControl || '',
-    ncf: ncfCheck.normalizado || ncf,
-    ncfValido: ncfCheck.valido,
-    ncfTipo: ncfCheck.tipo,
-    fechaEmision: fechaDate ? fechaDate.toISOString() : new Date().toISOString(),
-    monedaOriginal: ['VES', 'USD', 'EUR'].includes(data.monedaOriginal) ? data.monedaOriginal : 'VES',
-    baseImponible,
-    montoExento: exento,
-    montoExonerado: exonerado,
-    alicuotaIVA: alicuota,
-    montoIVA: iva,
-    subtotal,
-    total,
-    retencionIVAPorcentaje: retIVAPct,
-    retencionIVAMonto: retIVAMonto,
-    retencionISLRPorcentaje: retISLRPct,
-    retencionISLRMonto: retISLRMonto,
-    retencionISLRBase: retISLRBase,
-    descripcion: data.descripcion || `Factura ${data.emisor?.nombre || ''}`.trim(),
-    items: Array.isArray(data.items) ? data.items : [],
-    confianza,
-    advertencias,
-    rawText: content.substring(0, 500),
-  }
-}
