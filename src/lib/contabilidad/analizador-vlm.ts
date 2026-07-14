@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { validarRIF, validarNCF, parseFechaVE } from './ven-nif'
 
+// 1. Definición completa de la interfaz (esto corrige el primer error)
 export interface FacturaExtraida {
   tipoDetectado: 'COMPRA' | 'VENTA' | 'NOTA_CREDITO' | 'NOTA_DEBITO' | 'GASTO_MENOR' | 'DESCONOCIDO'
   emisor: { nombre: string; rif: string; rifValido: boolean; direccion?: string; telefono?: string }
@@ -31,35 +31,31 @@ export interface FacturaExtraida {
   rawText?: string
 }
 
-const PROMPT_ANALISIS = "Eres un experto en contabilidad venezolana. Analiza la imagen y devuelve SOLO un JSON plano sin markdown."
+// 2. Función de parseo (esto corrige el segundo error)
+function parsearRespuestaVLM(content: string): FacturaExtraida {
+  let jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim()
+  const inicio = jsonStr.indexOf('{')
+  const fin = jsonStr.lastIndexOf('}')
+  if (inicio === -1 || fin === -1) throw new Error('Respuesta no contiene un JSON válido')
+  jsonStr = jsonStr.substring(inicio, fin + 1)
+  return JSON.parse(jsonStr) as FacturaExtraida
+}
 
+// 3. Función principal
 export async function analizarFactura(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<FacturaExtraida> {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('GEMINI_API_KEY no está configurada')
 
   const genAI = new GoogleGenerativeAI(apiKey)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-lasted' })
+  // Usamos gemini-1.5-flash ya que es el modelo diseñado para visión
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
   const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "")
   const imagePart = { inlineData: { data: base64Data, mimeType } }
 
-  const prompt = PROMPT_ANALISIS + "\n\nIMPORTANTE: Devuelve SOLO el JSON plano. Sin ```json, sin marcas, sin texto previo ni posterior."
-
+  const prompt = "Eres un contador experto. Analiza la factura y devuelve SOLO un JSON plano sin markdown, sin texto adicional."
   const result = await model.generateContent([prompt, imagePart])
   const text = result.response.text()
   
   return parsearRespuestaVLM(text)
-}
-
-function parsearRespuestaVLM(content: string): FacturaExtraida {
-  let jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim()
-  const inicio = jsonStr.indexOf('{')
-  const fin = jsonStr.lastIndexOf('}')
-  
-  if (inicio === -1 || fin === -1) throw new Error('Respuesta no contiene un JSON válido')
-  
-  jsonStr = jsonStr.substring(inicio, fin + 1)
-  const data = JSON.parse(jsonStr)
-
-  return data as FacturaExtraida
 }
