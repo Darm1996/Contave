@@ -1,46 +1,58 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai';
 
-// Interfaz para asegurar la estructura
+// Definición de la estructura de datos esperada
 export interface FacturaExtraida {
-  tipoDetectado: string
-  emisor: { nombre: string; rif: string; rifValido: boolean }
-  receptor: { nombre: string; rif: string; rifValido: boolean }
-  numeroFactura: string
-  numeroControl: string
-  ncf: string
-  fechaEmision: string
-  total: number
-  items: Array<{ descripcion: string; cantidad: number; precioUnitario: number; total: number }>
-}
-
-function parsearRespuestaVLM(content: string): FacturaExtraida {
-  let jsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim()
-  const inicio = jsonStr.indexOf('{')
-  const fin = jsonStr.lastIndexOf('}')
-  if (inicio === -1 || fin === -1) throw new Error('Respuesta no contiene un JSON válido')
-  jsonStr = jsonStr.substring(inicio, fin + 1)
-  return JSON.parse(jsonStr) as FacturaExtraida
+  tipoDetectado: 'COMPRA' | 'VENTA' | 'NOTA_CREDITO' | 'NOTA_DEBITO' | 'GASTO_MENOR' | 'DESCONOCIDO';
+  emisor: { nombre: string; rif: string; rifValido: boolean };
+  receptor: { nombre: string; rif: string; rifValido: boolean };
+  numeroFactura: string;
+  total: number;
+  items: Array<{ descripcion: string; total: number }>;
 }
 
 export async function analizarFactura(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<FacturaExtraida> {
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.ZAI_API_KEY;
   
   if (!apiKey) {
-    console.error("ERROR: GEMINI_API_KEY no encontrada en process.env")
-    throw new Error('GEMINI_API_KEY no está configurada')
+    throw new Error('ZAI_API_KEY no está configurada en las variables de entorno');
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey)
-  // Usamos el modelo con sufijo -001 para mayor estabilidad en v1beta
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-001' })
+  const client = new OpenAI({
+    apiKey: apiKey,
+    baseURL: 'https://api.z.ai/v1' 
+  });
 
-  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "")
-  const imagePart = { inlineData: { data: base64Data, mimeType } }
+  const response = await client.chat.completions.create({
+    model: 'glm-5v-turbo',
+    messages: [
+      {
+        role: "user",
+        content: [
+          { 
+            type: "text", 
+            text: "Eres un contador experto. Analiza la imagen de la factura y extrae los datos. Devuelve ÚNICAMENTE un objeto JSON plano que coincida con esta estructura: { tipoDetectado, emisor, receptor, numeroFactura, total, items }. No incluyas explicaciones ni formato markdown." 
+          },
+          { 
+            type: "image_url", 
+            image_url: { url: `data:${mimeType};base64,${imageBase64}` } 
+          }
+        ],
+      },
+    ],
+  });
 
-  const prompt = "Eres un contador experto. Analiza la factura y devuelve SOLO un JSON plano sin markdown, sin texto adicional."
+  const content = response.choices[0].message.content || '{}';
   
-  const result = await model.generateContent([prompt, imagePart])
-  const text = result.response.text()
-  
-  return parsearRespuestaVLM(text)
+  // Limpieza robusta del string para asegurar que sea un JSON válido
+  const jsonString = content
+    .replace(/```json/g, '')
+    .replace(/```/g, '')
+    .trim();
+
+  try {
+    return JSON.parse(jsonString) as FacturaExtraida;
+  } catch (error) {
+    console.error("Error al parsear el JSON de Z.ai:", content);
+    throw new Error("La IA no devolvió un formato JSON válido.");
+  }
 }
