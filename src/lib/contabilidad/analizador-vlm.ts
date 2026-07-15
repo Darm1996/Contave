@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 
-// Definición de la estructura de datos esperada
 export interface FacturaExtraida {
   tipoDetectado: 'COMPRA' | 'VENTA' | 'NOTA_CREDITO' | 'NOTA_DEBITO' | 'GASTO_MENOR' | 'DESCONOCIDO';
   emisor: { nombre: string; rif: string; rifValido: boolean };
@@ -12,9 +11,18 @@ export interface FacturaExtraida {
 
 export async function analizarFactura(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<FacturaExtraida> {
   const apiKey = process.env.ZAI_API_KEY;
+  if (!apiKey) throw new Error('ZAI_API_KEY no está configurada');
+
+  // 1. Limpieza inicial del Base64
+  const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
   
-  if (!apiKey) {
-    throw new Error('ZAI_API_KEY no está configurada en las variables de entorno');
+  // 2. Validación de tamaño (6MB aproximado en base64 es ~8,000,000 caracteres)
+  // Calculamos el tamaño estimado: (longitud * 3) / 4 / 1024 / 1024 en MB
+  const sizeInMB = (base64Data.length * 0.75) / (1024 * 1024);
+  
+  if (sizeInMB > 4.5) {
+    // Si supera el límite de Vercel (4.5MB), lanzamos error antes de que el servidor colapse
+    throw new Error(`La imagen pesa ${sizeInMB.toFixed(2)}MB y supera el límite permitido de 4.5MB. Por favor, redúcela.`);
   }
 
   const client = new OpenAI({
@@ -28,31 +36,13 @@ export async function analizarFactura(imageBase64: string, mimeType: string = 'i
       {
         role: "user",
         content: [
-          { 
-            type: "text", 
-            text: "Eres un contador experto. Analiza la imagen de la factura y extrae los datos. Devuelve ÚNICAMENTE un objeto JSON plano que coincida con esta estructura: { tipoDetectado, emisor, receptor, numeroFactura, total, items }. No incluyas explicaciones ni formato markdown." 
-          },
-          { 
-            type: "image_url", 
-            image_url: { url: `data:${mimeType};base64,${imageBase64}` } 
-          }
+          { type: "text", text: "Extrae los datos de esta factura en JSON plano." },
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}` } }
         ],
       },
     ],
   });
 
   const content = response.choices[0].message.content || '{}';
-  
-  // Limpieza robusta del string para asegurar que sea un JSON válido
-  const jsonString = content
-    .replace(/```json/g, '')
-    .replace(/```/g, '')
-    .trim();
-
-  try {
-    return JSON.parse(jsonString) as FacturaExtraida;
-  } catch (error) {
-    console.error("Error al parsear el JSON de Z.ai:", content);
-    throw new Error("La IA no devolvió un formato JSON válido.");
-  }
+  return JSON.parse(content.replace(/```json/g, '').replace(/```/g, '').trim());
 }
