@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { requireAuth } from '@/lib/auth'
 
 // Forzar comportamiento dinámico para evitar problemas con cookies/sesión en Vercel
 export const dynamic = 'force-dynamic'
@@ -9,6 +10,7 @@ const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function POST(req: Request) {
   try {
+    await requireAuth()
     const { imagenBase64, mimeType } = await req.json()
 
     if (!imagenBase64) {

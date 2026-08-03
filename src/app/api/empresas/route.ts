@@ -26,7 +26,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth()
-    if (user.role !== 'ADMIN') {
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Solo los administradores pueden crear empresas' }, { status: 403 })
     }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/auth'
 import { calcularRetencionISLR, buscarTarifaISLR, UT_VIGENTE_BS } from '@/lib/contabilidad/islr'
 
 // POST /api/islr/calcular
@@ -6,6 +7,7 @@ import { calcularRetencionISLR, buscarTarifaISLR, UT_VIGENTE_BS } from '@/lib/co
 // Retorna: { baseImponible, montoRetenido, aplicaRetencion, motivo, tarifa }
 export async function POST(req: NextRequest) {
   try {
+    await requireAuth()
     const body = await req.json()
     const { montoPago, tarifaCodigo, utActual } = body
     if (typeof montoPago !== 'number' || montoPago < 0) {
