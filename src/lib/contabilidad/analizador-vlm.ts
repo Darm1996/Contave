@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { validarRIF } from './ven-nif';
 
 export interface FacturaExtraida {
@@ -107,8 +107,8 @@ export function normalizarRespuesta(raw: any): FacturaExtraida {
 }
 
 export async function analizarFactura(imageBase64: string, mimeType: string = 'image/jpeg'): Promise<FacturaExtraida> {
-  const apiKey = process.env.ZAI_API_KEY;
-  if (!apiKey) throw new Error('ZAI_API_KEY no está configurada');
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY no está configurada');
 
   // 1. Limpieza inicial del Base64
   const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
@@ -122,25 +122,18 @@ export async function analizarFactura(imageBase64: string, mimeType: string = 'i
     throw new Error(`La imagen pesa ${sizeInMB.toFixed(2)}MB y supera el límite permitido de 4.5MB. Por favor, redúcela.`);
   }
 
-  const client = new OpenAI({
-    apiKey: apiKey,
-    baseURL: 'https://api.z.ai/v1'
+  const client = new GoogleGenerativeAI(apiKey);
+  const model = client.getGenerativeModel({
+    model: 'gemini-1.5-flash',
+    generationConfig: { responseMimeType: 'application/json' },
   });
 
-  const response = await client.chat.completions.create({
-    model: 'glm-5v-turbo',
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: PROMPT_EXTRACCION },
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}` } }
-        ],
-      },
-    ],
-  });
+  const result = await model.generateContent([
+    PROMPT_EXTRACCION,
+    { inlineData: { data: base64Data, mimeType } },
+  ]);
 
-  const content = response.choices[0].message.content || '{}';
+  const content = result.response.text() || '{}';
   const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim();
   let raw: any
   try {

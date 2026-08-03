@@ -148,8 +148,9 @@ DIRECT_URL="postgresql://postgres.TU_PROYECTO:TU_PASSWORD@aws-0-sa-east-1.pooler
 # Genera un secreto aleatorio largo (cambia esto)
 JWT_SECRET="cambia-esto-por-una-cadena-aleatoria-de-al-menos-32-caracteres-2026"
 
-# Requerida: API key de Z.ai para el escáner de facturas por IA (VLM)
-ZAI_API_KEY="tu-api-key-de-z.ai"
+# Requerida: API key de Gemini para el escáner de facturas por IA (VLM)
+# Consíguela en https://aistudio.google.com/app/apikey
+GEMINI_API_KEY="tu-api-key-de-gemini"
 
 # Opcional - solo si vas a usar Google Sheets
 # GOOGLE_SHEETS_CLIENT_EMAIL="tu-sa@proyecto.iam.gserviceaccount.com"
@@ -375,7 +376,7 @@ Las credenciales `admin123` y `ContaVE2026!` son de demostración. En producció
 - [ ] Proyecto creado en Supabase
 - [ ] Cadena de conexión copiada
 - [ ] Código subido a GitHub
-- [ ] Variables `.env` configuradas localmente (incluyendo `ZAI_API_KEY`)
+- [ ] Variables `.env` configuradas localmente (incluyendo `GEMINI_API_KEY`)
 - [ ] `bun run db:push` ejecutado (tablas creadas)
 - [ ] `bun run scripts/seed.ts` ejecutado (datos cargados)
 - [ ] `bun run scripts/crear-super-admin.ts` ejecutado

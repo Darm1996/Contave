@@ -26,7 +26,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:testpass@localhost:5432/contave_ci
       DIRECT_URL: postgresql://postgres:testpass@localhost:5432/contave_ci
       JWT_SECRET: ci-only-secret-not-used-in-production-32chars
-      ZAI_API_KEY: ci-placeholder-key
+      GEMINI_API_KEY: ci-placeholder-key
     steps:
       - uses: actions/checkout@v4
 
