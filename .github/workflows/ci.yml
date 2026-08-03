@@ -27,7 +27,6 @@ jobs:
       DIRECT_URL: postgresql://postgres:testpass@localhost:5432/contave_ci
       JWT_SECRET: ci-only-secret-not-used-in-production-32chars
       ZAI_API_KEY: ci-placeholder-key
-      NODE_ENV: development
     steps:
       - uses: actions/checkout@v4
 
@@ -52,4 +51,8 @@ jobs:
         run: npm test
 
       - name: Build
+        env:
+          # El type-check de `next build` puede agotar el heap por defecto de
+          # Node en los runners de GitHub Actions; se le da más margen.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build
