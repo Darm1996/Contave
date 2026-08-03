@@ -24,7 +24,17 @@ export async function GET(req: NextRequest) {
     if (cuentaId) whereCuenta.id = cuentaId
     const cuentas = await db.cuenta.findMany({ where: whereCuenta, orderBy: { codigo: 'asc' } })
 
-    const resultado = []
+    const resultado: Array<{
+      codigoCuenta: string
+      nombreCuenta: string
+      tipoCuenta: string
+      naturaleza: string
+      saldoInicial: number
+      movimientos: Array<{ fecha: Date; numeroAsiento: number; descripcion: string; debit: number; credit: number; saldo: number }>
+      totalDebit: number
+      totalCredit: number
+      saldoFinal: number
+    }> = []
     for (const cuenta of cuentas) {
       // Buscar todas las líneas de asiento para esta cuenta dentro del rango
       const lineas = await db.asientoLinea.findMany({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser, setSessionCookie, requireAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { CUENTAS_VEN_NIF } from '@/lib/contabilidad/plan-cuentas-ven-nif'
 
 // Límite máximo de empresas por usuario (plan estándar)
 const MAX_EMPRESAS_POR_USUARIO = 5
@@ -26,7 +27,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireAuth()
-    if (user.role !== 'ADMIN') {
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'Solo los administradores pueden crear empresas' }, { status: 403 })
     }
 
@@ -85,25 +86,22 @@ export async function POST(req: NextRequest) {
     await db.userEmpresa.create({
       data: { userId: user.id, empresaId: empresa.id, rol: 'ADMIN' },
     })
-    // Clonar plan de cuentas VEN-NIF desde empresa plantilla (la primera empresa existente)
-    const plantilla = await db.empresa.findFirst({
-      where: { NOT: { id: empresa.id } },
-      include: { cuentas: true },
+    // Cargar el plan de cuentas estándar VEN-NIF Pymes (el mismo catálogo fijo
+    // que usa el seed de demo). Antes se clonaba el plan de cuentas de "la
+    // primera empresa que no sea la nueva" en todo el sistema, lo cual podía
+    // filtrar personalizaciones de un tenant ajeno hacia una empresa nueva.
+    await db.cuenta.createMany({
+      data: CUENTAS_VEN_NIF.map((c) => ({
+        empresaId: empresa.id,
+        codigo: c.codigo,
+        nombre: c.nombre,
+        tipo: c.tipo,
+        naturaleza: c.naturaleza,
+        nivel: c.nivel,
+        imputable: c.imputable ?? true,
+        uso: c.uso || null,
+      })),
     })
-    if (plantilla) {
-      await db.cuenta.createMany({
-        data: plantilla.cuentas.map((c) => ({
-          empresaId: empresa.id,
-          codigo: c.codigo,
-          nombre: c.nombre,
-          tipo: c.tipo,
-          naturaleza: c.naturaleza,
-          nivel: c.nivel,
-          imputable: c.imputable,
-          uso: c.uso,
-        })),
-      })
-    }
     return NextResponse.json({ empresa })
   } catch (e: any) {
     console.error('Create empresa error:', e)

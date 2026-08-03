@@ -17,7 +17,17 @@ export async function GET(req: NextRequest) {
       orderBy: { codigo: 'asc' },
     })
 
-    const balance = []
+    const balance: Array<{
+      codigoCuenta: string
+      nombreCuenta: string
+      tipoCuenta: string
+      naturaleza: string
+      totalDebit: number
+      totalCredit: number
+      saldo: number
+      saldoDeudor: number
+      saldoAcreedor: number
+    }> = []
     let totalDeudor = 0
     let totalAcreedor = 0
     for (const cuenta of cuentas) {

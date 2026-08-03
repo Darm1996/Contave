@@ -63,6 +63,8 @@ export function calcularDeclaracionIVA(
     alicuotaIVA: number
     montoIVA: number
     montoRetencionIVA: number | null
+    // Solo relevante para NOTA_CREDITO/NOTA_DEBITO: si la nota afecta una venta o una compra.
+    ncfAfectaVenta?: boolean
   }>,
   mes: number,
   ano: number,
@@ -107,13 +109,19 @@ export function calcularDeclaracionIVA(
     } else if (nc.alicuotaIVA === 8) {
       totalVentasGravadas8 -= nc.baseImponible
       debitoFiscal8 -= nc.montoIVA
+    } else {
+      totalVentasGravadas0 -= nc.baseImponible
+      debitoFiscal0 -= nc.montoIVA
     }
   }
 
   const debitoFiscalTotal = debitoFiscal16 + debitoFiscal8 + debitoFiscal0
 
   // ── CRÉDITO FISCAL (Compras) ──
-  const compras = facturasPeriodo.filter((f) => f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR')
+  // Las notas de débito de proveedores aumentan lo comprado (igual que una compra normal).
+  const compras = facturasPeriodo.filter((f) =>
+    f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR' || (f.tipo === 'NOTA_DEBITO' && !f.ncfAfectaVenta),
+  )
   let totalComprasGravadas16 = 0, totalComprasGravadas8 = 0, totalComprasGravadas0 = 0
   let totalComprasSinCredito = 0
   let creditoFiscal16 = 0, creditoFiscal8 = 0, creditoFiscal0 = 0
@@ -134,12 +142,18 @@ export function calcularDeclaracionIVA(
     if (c.montoRetencionIVA) ivaRetenidoEnCompras += c.montoRetencionIVA
   }
 
-  // Notas de crédito de proveedores aumentan el crédito
+  // Notas de crédito de proveedores (devoluciones, descuentos) reducen el crédito fiscal
   const notasCreditoCompra = facturasPeriodo.filter((f) => f.tipo === 'NOTA_CREDITO' && !f.ncfAfectaVenta)
   for (const nc of notasCreditoCompra) {
     if (nc.alicuotaIVA === 16) {
-      totalComprasGravadas16 += nc.baseImponible
-      creditoFiscal16 += nc.montoIVA
+      totalComprasGravadas16 -= nc.baseImponible
+      creditoFiscal16 -= nc.montoIVA
+    } else if (nc.alicuotaIVA === 8) {
+      totalComprasGravadas8 -= nc.baseImponible
+      creditoFiscal8 -= nc.montoIVA
+    } else {
+      totalComprasGravadas0 -= nc.baseImponible
+      creditoFiscal0 -= nc.montoIVA
     }
   }
 

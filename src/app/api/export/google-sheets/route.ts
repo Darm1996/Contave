@@ -72,7 +72,13 @@ export async function POST(req: NextRequest) {
         where: { empresaId, imputable: true },
         orderBy: { codigo: 'asc' },
       })
-      const balance = []
+      const balance: Array<{
+        codigoCuenta: string
+        nombreCuenta: string
+        tipoCuenta: string
+        saldoDeudor: number
+        saldoAcreedor: number
+      }> = []
       for (const cuenta of cuentas) {
         const lineas = await db.asientoLinea.findMany({
           where: { cuentaId: cuenta.id, asiento: { empresaId } },

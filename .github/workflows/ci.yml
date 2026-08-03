@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: contave_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:testpass@localhost:5432/contave_ci
+      DIRECT_URL: postgresql://postgres:testpass@localhost:5432/contave_ci
+      JWT_SECRET: ci-only-secret-not-used-in-production-32chars
+      GEMINI_API_KEY: ci-placeholder-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push database schema
+        run: npx prisma db push
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        env:
+          # El type-check de `next build` puede agotar el heap por defecto de
+          # Node en los runners de GitHub Actions; se le da más margen.
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run build

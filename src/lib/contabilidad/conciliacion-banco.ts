@@ -122,7 +122,7 @@ export async function cargarMovimientosBanco(
     })
 
     // Buscar una línea que no esté ya conciliada
-    let lineaConciliada = null
+    let lineaConciliada: typeof lineasCandidatas[number] | null = null
     for (const l of lineasCandidatas) {
       // Verificar si esta línea ya está conciliada con otro movimiento
       const yaConciliada = await db.movimientoBanco.findFirst({
@@ -204,7 +204,7 @@ export async function recalcularDiferencias(conciliacionId: string) {
     include: { asiento: true },
   })
   // Identificar líneas del libro sin movimiento bancario correspondiente
-  const lineasNoConciliadas = []
+  const lineasNoConciliadas: typeof lineasLibro = []
   for (const l of lineasLibro) {
     const movRelacionado = await db.movimientoBanco.findFirst({
       where: { asientoLineaId: l.id, conciliado: true },

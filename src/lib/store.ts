@@ -15,6 +15,7 @@ export type TabKey =
   | 'conciliacion'
   | 'cuentas'
   | 'islr'
+  | 'reporte-islr'
   | 'empresas'
   | 'tasa'
   | 'exportar'
@@ -31,8 +32,10 @@ interface EmpresaState {
   nombre: string
   rif: string
   esAgenteRetencionIVA: boolean
+  esContribuyenteEspecial: boolean
   alicuotaIVA: number
   monedaFuncional: string
+  rol?: string
 }
 
 interface AppState {

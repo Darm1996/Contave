@@ -21,7 +21,7 @@ export function Exportar() {
 
   useEffect(() => {
     apiFetch<{ habilitado: boolean }>('/api/export/google-sheets')
-      .then((r) => { if (r.ok) setGsEnabled(r.data.habilitado) })
+      .then((r) => { if (r.ok && r.data) setGsEnabled(r.data.habilitado) })
       .finally(() => setCheckingGs(false))
   }, [])
 

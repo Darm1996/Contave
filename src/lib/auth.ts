@@ -4,6 +4,9 @@ import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { db } from './db'
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET no está configurado. Es obligatorio definirlo en producción.')
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'contave-dev-secret-change-in-production-2024'
 const COOKIE_NAME = 'contave_session'
 const SESSION_DAYS = 7

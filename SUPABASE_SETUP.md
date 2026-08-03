@@ -30,21 +30,17 @@ ContaVE funciona con SQLite para desarrollo local, pero para producción (multi-
 Edita el archivo `.env` en la raíz del proyecto:
 
 ```bash
-# COMENTA la línea de SQLite:
-# DATABASE_URL="file:/home/z/my-project/db/custom.db"
-
-# AGREGA las líneas de Supabase:
 DATABASE_URL="postgresql://postgres:[TU-PASSWORD]@db.[TU-PROYECTO].supabase.co:5432/postgres"
 DIRECT_URL="postgresql://postgres:[TU-PASSWORD]@db.[TU-PROYECTO].supabase.co:5432/postgres"
 ```
 
-### 4. Cambiar el schema de Prisma a PostgreSQL
+### 4. Crear las tablas en Supabase
+
+`prisma/schema.prisma` ya usa el provider `postgresql`, así que no hace falta
+cambiar ningún archivo — solo generar el cliente y aplicar el schema:
 
 ```bash
-# Reemplaza el schema de SQLite con el de PostgreSQL (Supabase)
-cp prisma/schema.supabase.prisma prisma/schema.prisma
-
-# Genera el cliente Prisma con el nuevo provider
+# Genera el cliente Prisma
 bun run db:generate
 
 # Crea todas las tablas en Supabase
@@ -122,15 +118,17 @@ ALTER TABLE "Factura" ENABLE ROW LEVEL SECURITY;
 
 ### Respaldos automáticos
 - Supabase hace respaldos diarios automáticos en el plan Pro
-- En el plan Free, puedes hacer respaldos manuales con:
-  ```bash
-  bun run scripts/backup-supabase.ts
-  ```
+- En el plan Free, puedes exportar manualmente con `pg_dump` usando el
+  `DATABASE_URL` de tu proyecto, o desde el panel de Supabase (Database →
+  Backups)
 
 ## ❓ Preguntas frecuentes
 
-**¿Puedo seguir usando SQLite para desarrollo local?**
-Sí. Mantén `DATABASE_URL="file:..."` en tu `.env` local y usa Supabase solo en producción. El schema de SQLite (`prisma/schema.prisma` original) y PostgreSQL (`prisma/schema.supabase.prisma`) son idénticos en estructura.
+**¿Puedo desarrollar localmente sin depender de Supabase?**
+Sí. Instala PostgreSQL localmente (o usa un contenedor Docker) y apunta
+`DATABASE_URL`/`DIRECT_URL` a esa instancia local en tu `.env`. El schema
+(`prisma/schema.prisma`) es el mismo en desarrollo y producción — solo cambia
+la cadena de conexión.
 
 **¿Qué pasa si supero el límite del plan free?**
 Supabase Free incluye 500MB de almacenamiento y 2GB de transferencia/mes. Para una app contable con cientos de facturas por empresa, esto es suficiente para varias empresas pequeñas. Si necesitas más, el plan Pro es $25/mes.

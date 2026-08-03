@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     const creditoFiscalAnterior = Math.max(0, ivaComprasAnterior - ivaVentasAnterior)
 
     // Calcular declaración
-    const declaracion = calcularDeclaracionIVA(facturasMes as any, mes, ano, creditoFiscalAnterior)
+    const declaracion = calcularDeclaracionIVA(facturasMes, mes, ano, creditoFiscalAnterior)
 
     return NextResponse.json({ declaracion })
   } catch (e: any) {

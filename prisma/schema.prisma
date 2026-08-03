@@ -146,6 +146,10 @@ model Factura {
   descripcion     String?
   imagenUrl       String?
   imagenData      String?
+  // Solo relevante cuando tipo es NOTA_CREDITO o NOTA_DEBITO: indica si la nota
+  // afecta una venta (true) o una compra (false), para el débito/crédito fiscal
+  // de la declaración de IVA. Se ignora para los demás tipos.
+  ncfAfectaVenta  Boolean  @default(true)
   asiento         Asiento?
   estado          String   @default("REGISTRADA")
   empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)

@@ -96,7 +96,7 @@ export async function POST(request: Request) {
     }
 
     const montoNetoPorPagar = Number((total - retencionIVAMonto - retencionISLRMonto).toFixed(2))
-    const lineasAsiento = []
+    const lineasAsiento: Array<{ cuentaCodigo: string; descripcion: string; debe: number; haber: number }> = []
 
     // ---- DEBE ----
     lineasAsiento.push({

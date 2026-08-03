@@ -140,6 +140,8 @@ export async function POST(req: NextRequest) {
         totalMonedaFuncional,
         descripcion: body.descripcion || null,
         imagenData: body.imagenData || null,
+        // Solo aplica a NOTA_CREDITO/NOTA_DEBITO; se ignora para los demás tipos.
+        ncfAfectaVenta: body.ncfAfectaVenta != null ? Boolean(body.ncfAfectaVenta) : true,
         estado: 'REGISTRADA',
       },
       include: { asiento: true },
