@@ -124,10 +124,12 @@ export function facturaAFilaLibro(factura: any): FilaLibroCompras | FilaLibroVen
     } as FilaLibroVentas
   }
   if (factura.tipo === 'NOTA_CREDITO' || factura.tipo === 'NOTA_DEBITO') {
-    // Las notas pueden ir tanto en libro de compras como de ventas según afecten
-    // Para simplificar: si el NCF empieza por 04/03 = venta, 06/05 = compra
-    const prefijo = factura.ncf ? factura.ncf.substring(0, 2) : ''
-    const esNotaVenta = prefijo === '03' || prefijo === '04'
+    // Las notas pueden ir tanto en libro de compras como de ventas según afecten.
+    // Se usa el mismo campo ncfAfectaVenta que el usuario elige al registrar la
+    // nota (y que usa la declaración de IVA), no el prefijo del NCF: el NCF es
+    // opcional y a menudo viene vacío, además de que el prefijo no siempre
+    // coincide con la dirección real de la nota.
+    const esNotaVenta = factura.ncfAfectaVenta !== false
     if (esNotaVenta) {
       return {
         fecha: factura.fechaEmision,

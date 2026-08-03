@@ -13,7 +13,7 @@ const pooledDbUrl = baseDbUrl.includes('?')
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: ['query'],
+    log: process.env.NODE_ENV === 'production' ? [] : ['query'],
     datasources: {
       db: {
         url: pooledDbUrl,

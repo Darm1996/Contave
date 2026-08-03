@@ -65,23 +65,30 @@ export interface EstadoResultado {
 }
 
 // Obtener saldos de todas las cuentas imputables en un período
+// Una sola consulta agregada (groupBy) en vez de un findMany por cuenta.
 async function obtenerSaldosCuentas(empresaId: string, desde: Date, hasta: Date): Promise<CuentaSaldo[]> {
   const cuentas = await db.cuenta.findMany({
     where: { empresaId, imputable: true },
     orderBy: { codigo: 'asc' },
   })
+  if (cuentas.length === 0) return []
+
+  const sumas = await db.asientoLinea.groupBy({
+    by: ['cuentaId'],
+    where: {
+      cuentaId: { in: cuentas.map((c) => c.id) },
+      asiento: { empresaId, fecha: { gte: desde, lte: hasta } },
+    },
+    _sum: { debit: true, credit: true },
+  })
+  const sumaPorCuenta = new Map(sumas.map((s) => [s.cuentaId, s._sum]))
+
   const resultado: CuentaSaldo[] = []
   for (const cuenta of cuentas) {
-    const lineas = await db.asientoLinea.findMany({
-      where: {
-        cuentaId: cuenta.id,
-        asiento: { empresaId, fecha: { gte: desde, lte: hasta } },
-      },
-      select: { debit: true, credit: true },
-    })
-    if (lineas.length === 0) continue
-    const totalDebit = lineas.reduce((s, l) => s + l.debit, 0)
-    const totalCredit = lineas.reduce((s, l) => s + l.credit, 0)
+    const suma = sumaPorCuenta.get(cuenta.id)
+    if (!suma) continue
+    const totalDebit = suma.debit || 0
+    const totalCredit = suma.credit || 0
     const saldo = cuenta.naturaleza === 'DEUDORA' ? totalDebit - totalCredit : totalCredit - totalDebit
     if (Math.abs(saldo) > 0.001) {
       resultado.push({
