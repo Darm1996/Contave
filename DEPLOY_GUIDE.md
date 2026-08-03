@@ -87,9 +87,7 @@ Necesitas descargar todos los archivos del proyecto desde el sandbox. Para esto:
 3. Descomprímelo en tu computadora en una carpeta llamada `contave`
 
 **Archivos críticos que debes asegurar que se descarguen:**
-- `prisma/schema.prisma` (schema actual SQLite)
-- `prisma/schema.supabase.prisma` (schema PostgreSQL)
-- `scripts/switch-db.sh`
+- `prisma/schema.prisma` (ya es el schema de PostgreSQL/Supabase, no requiere cambios)
 - `scripts/seed.ts`
 - `scripts/crear-super-admin.ts`
 - `src/` (todo el código fuente)
@@ -130,17 +128,11 @@ Si te pide credenciales, usa un **Personal Access Token** de GitHub (Settings �
 
 ## ⚙️ PARTE 3: Preparar el proyecto para producción
 
-### Paso 3.1: Cambiar el schema a PostgreSQL
+### Paso 3.1: (Ya no es necesario) Cambiar el schema a PostgreSQL
 
-En tu computadora, dentro de la carpeta `contave`:
-
-```bash
-# En Windows (PowerShell):
-Copy-Item prisma\schema.supabase.prisma prisma\schema.prisma -Force
-
-# En Mac/Linux:
-cp prisma/schema.supabase.prisma prisma/schema.prisma
-```
+`prisma/schema.prisma` ya usa el provider `postgresql` directamente — no hay
+un schema separado de SQLite que copiar. Puedes pasar directamente al
+siguiente paso.
 
 ### Paso 3.2: Crear archivo `.env` local para probar
 
@@ -155,6 +147,9 @@ DIRECT_URL="postgresql://postgres.TU_PROYECTO:TU_PASSWORD@aws-0-sa-east-1.pooler
 
 # Genera un secreto aleatorio largo (cambia esto)
 JWT_SECRET="cambia-esto-por-una-cadena-aleatoria-de-al-menos-32-caracteres-2026"
+
+# Requerida: API key de Z.ai para el escáner de facturas por IA (VLM)
+ZAI_API_KEY="tu-api-key-de-z.ai"
 
 # Opcional - solo si vas a usar Google Sheets
 # GOOGLE_SHEETS_CLIENT_EMAIL="tu-sa@proyecto.iam.gserviceaccount.com"
@@ -380,8 +375,7 @@ Las credenciales `admin123` y `ContaVE2026!` son de demostración. En producció
 - [ ] Proyecto creado en Supabase
 - [ ] Cadena de conexión copiada
 - [ ] Código subido a GitHub
-- [ ] Schema cambiado a PostgreSQL (`schema.supabase.prisma`)
-- [ ] Variables `.env` configuradas localmente
+- [ ] Variables `.env` configuradas localmente (incluyendo `ZAI_API_KEY`)
 - [ ] `bun run db:push` ejecutado (tablas creadas)
 - [ ] `bun run scripts/seed.ts` ejecutado (datos cargados)
 - [ ] `bun run scripts/crear-super-admin.ts` ejecutado
