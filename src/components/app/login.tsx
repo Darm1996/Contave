@@ -48,7 +48,7 @@ export function Login() {
     setLoading(true)
     const r = await apiFetch('/api/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ email, password, name, rol: 'ADMIN' }),
+      body: JSON.stringify({ email, password, name }),
     })
     setLoading(false)
     if (!r.ok) {
