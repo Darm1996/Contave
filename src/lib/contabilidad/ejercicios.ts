@@ -3,17 +3,9 @@
 // Apertura: genera asiento de apertura para el nuevo ejercicio
 
 import { db } from '@/lib/db'
+import type { Ejercicio } from '@prisma/client'
 
-export interface EjercicioInfo {
-  id: string
-  ano: number
-  estado: string
-  fechaInicio: Date
-  fechaCierre: Date
-  utilidadNeta: number | null
-  islrEstimado: number | null
-  cerradoEn: Date | null
-}
+export type EjercicioInfo = Ejercicio
 
 // Crear ejercicio para un año específico
 export async function crearEjercicio(empresaId: string, ano: number): Promise<EjercicioInfo> {
@@ -42,23 +34,30 @@ export async function listarEjercicios(empresaId: string): Promise<EjercicioInfo
 }
 
 // Obtener saldos de cuentas por tipo en un período
+// Una sola consulta agregada (groupBy) en vez de un findMany por cuenta.
 async function obtenerSaldosPorTipo(empresaId: string, desde: Date, hasta: Date, tipo: string) {
   const cuentas = await db.cuenta.findMany({
     where: { empresaId, imputable: true, tipo },
     orderBy: { codigo: 'asc' },
   })
-  const resultado = []
+  if (cuentas.length === 0) return []
+
+  const sumas = await db.asientoLinea.groupBy({
+    by: ['cuentaId'],
+    where: {
+      cuentaId: { in: cuentas.map((c) => c.id) },
+      asiento: { empresaId, fecha: { gte: desde, lte: hasta } },
+    },
+    _sum: { debit: true, credit: true },
+  })
+  const sumaPorCuenta = new Map(sumas.map((s) => [s.cuentaId, s._sum]))
+
+  const resultado: Array<{ cuentaId: string; codigo: string; nombre: string; saldo: number; naturaleza: string }> = []
   for (const cuenta of cuentas) {
-    const lineas = await db.asientoLinea.findMany({
-      where: {
-        cuentaId: cuenta.id,
-        asiento: { empresaId, fecha: { gte: desde, lte: hasta } },
-      },
-      select: { debit: true, credit: true },
-    })
-    if (lineas.length === 0) continue
-    const tDeb = lineas.reduce((s, l) => s + l.debit, 0)
-    const tCre = lineas.reduce((s, l) => s + l.credit, 0)
+    const suma = sumaPorCuenta.get(cuenta.id)
+    if (!suma) continue
+    const tDeb = suma.debit || 0
+    const tCre = suma.credit || 0
     const saldo = cuenta.naturaleza === 'DEUDORA' ? tDeb - tCre : tCre - tDeb
     if (Math.abs(saldo) > 0.001) {
       resultado.push({ cuentaId: cuenta.id, codigo: cuenta.codigo, nombre: cuenta.nombre, saldo, naturaleza: cuenta.naturaleza })
@@ -193,18 +192,24 @@ export async function cerrarEjercicio(
     where: { empresaId, imputable: true, tipo: { in: ['ACTIVO', 'PASIVO', 'PATRIMONIO'] } },
     orderBy: { codigo: 'asc' },
   })
+  const sumasBalance = cuentasBalance.length > 0
+    ? await db.asientoLinea.groupBy({
+        by: ['cuentaId'],
+        where: {
+          cuentaId: { in: cuentasBalance.map((c) => c.id) },
+          asiento: { empresaId, fecha: { gte: desde, lte: hasta } },
+        },
+        _sum: { debit: true, credit: true },
+      })
+    : []
+  const sumaBalancePorCuenta = new Map(sumasBalance.map((s) => [s.cuentaId, s._sum]))
+
   const lineasApertura: Array<{ cuentaId: string; debit?: number; credit?: number; descripcion: string }> = []
   for (const cuenta of cuentasBalance) {
-    const lineasC = await db.asientoLinea.findMany({
-      where: {
-        cuentaId: cuenta.id,
-        asiento: { empresaId, fecha: { gte: desde, lte: hasta } },
-      },
-      select: { debit: true, credit: true },
-    })
-    if (lineasC.length === 0) continue
-    const tDeb = lineasC.reduce((s, l) => s + l.debit, 0)
-    const tCre = lineasC.reduce((s, l) => s + l.credit, 0)
+    const sumaC = sumaBalancePorCuenta.get(cuenta.id)
+    if (!sumaC) continue
+    const tDeb = sumaC.debit || 0
+    const tCre = sumaC.credit || 0
     const saldo = cuenta.naturaleza === 'DEUDORA' ? tDeb - tCre : tCre - tDeb
     if (Math.abs(saldo) < 0.01) continue
     // En el asiento de apertura, las cuentas deudoras van al débito y acreedoras al crédito

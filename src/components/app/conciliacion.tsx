@@ -122,7 +122,7 @@ export function Conciliacion() {
 
   async function verDetalle(id: string) {
     const r = await apiFetch<{ conciliacion: Conciliacion }>(`/api/conciliacion/${id}`)
-    if (r.ok) setSeleccionada(r.data.conciliacion)
+    if (r.ok && r.data) setSeleccionada(r.data.conciliacion)
   }
 
   async function cargarExtracto() {

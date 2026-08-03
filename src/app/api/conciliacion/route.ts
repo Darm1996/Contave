@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     )
 
     // Si vienen movimientos, cargarlos
-    let resultadoMovimientos = null
+    let resultadoMovimientos: Awaited<ReturnType<typeof cargarMovimientosBanco>> | null = null
     if (Array.isArray(movimientos) && movimientos.length > 0) {
       resultadoMovimientos = await cargarMovimientosBanco(conciliacion.id, movimientos)
     }

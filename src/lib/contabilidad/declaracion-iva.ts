@@ -63,6 +63,10 @@ export function calcularDeclaracionIVA(
     alicuotaIVA: number
     montoIVA: number
     montoRetencionIVA: number | null
+    // NOTA: este campo no existe todavía en el modelo Factura (prisma/schema.prisma).
+    // Sin él, todas las notas de crédito se clasifican como "de compra" y todas las
+    // notas de débito se excluyen del débito fiscal — ver hallazgo reportado aparte.
+    ncfAfectaVenta?: boolean
   }>,
   mes: number,
   ano: number,

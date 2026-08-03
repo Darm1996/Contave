@@ -420,5 +420,5 @@ export async function generarExcelContable(datos: {
     }
   }
 
-  return await wb.xlsx.writeBuffer() as Buffer
+  return await wb.xlsx.writeBuffer() as unknown as Buffer
 }

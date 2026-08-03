@@ -32,7 +32,7 @@ export function TasaCambio() {
   async function cargar() {
     setLoading(true)
     const r = await apiFetch<{ tasas: Tasa[] }>('/api/tasa-cambio')
-    if (r.ok) setTasas(r.data.tasas)
+    if (r.ok && r.data) setTasas(r.data.tasas)
     setLoading(false)
   }
 

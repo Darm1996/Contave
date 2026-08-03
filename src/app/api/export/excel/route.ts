@@ -75,7 +75,16 @@ export async function POST(req: NextRequest) {
       where: { empresaId, imputable: true },
       orderBy: { codigo: 'asc' },
     })
-    const mayorExcel = []
+    const mayorExcel: Array<{
+      codigoCuenta: string
+      nombreCuenta: string
+      tipoCuenta: string
+      saldoInicial: number
+      movimientos: Array<{ fecha: Date; numeroAsiento: number; descripcion: string; debit: number; credit: number; saldo: number }>
+      totalDebit: number
+      totalCredit: number
+      saldoFinal: number
+    }> = []
     for (const cuenta of cuentas) {
       const lineas = await db.asientoLinea.findMany({
         where: { cuentaId: cuenta.id, asiento: whereAs },
@@ -108,7 +117,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Balance de comprobación
-    const balanceExcel = []
+    const balanceExcel: Array<{
+      codigoCuenta: string
+      nombreCuenta: string
+      tipoCuenta: string
+      saldoDeudor: number
+      saldoAcreedor: number
+    }> = []
     for (const cuenta of cuentas) {
       const lineas = await db.asientoLinea.findMany({
         where: { cuentaId: cuenta.id, asiento: whereAs },
