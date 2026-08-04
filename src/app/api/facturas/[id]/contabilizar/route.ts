@@ -79,8 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         descripcion: factura.descripcion,
         aplicaA,
       })
-    } else {
-      // GASTO_MENOR
+    } else if (factura.tipo === 'GASTO_MENOR') {
       resultado = await generarAsientoGastoMenor({
         empresaId,
         baseImponible: factura.baseImponible,
@@ -94,6 +93,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         descripcion: factura.descripcion,
         usoGasto,
       })
+    } else {
+      return NextResponse.json({ error: `Tipo de factura no reconocido para contabilizar: ${factura.tipo}` }, { status: 400 })
     }
 
     if (!resultado.balanceado) {

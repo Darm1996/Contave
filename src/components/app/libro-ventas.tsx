@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { RefreshCw } from 'lucide-react'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { RefreshCw, Download } from 'lucide-react'
 
 interface Fila {
   fecha: string
@@ -70,6 +71,38 @@ export function LibroVentas() {
 
   useEffect(() => { cargar() }, [])
 
+  function exportar() {
+    exportarExcelCliente(`LibroVentas_${new Date().toISOString().slice(0, 10)}.xlsx`, [{
+      nombre: 'Libro de Ventas',
+      columnas: [
+        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'Tipo', key: 'tipoOperacion', width: 14 },
+        { header: 'N° Factura', key: 'numeroFactura', width: 14 },
+        { header: 'NCF', key: 'ncf', width: 16 },
+        { header: 'RIF Cliente', key: 'rifCliente', width: 16 },
+        { header: 'Nombre Cliente', key: 'nombreCliente', width: 28 },
+        { header: 'Base 16%', key: 'baseImponible16', width: 14, numFmt: '#,##0.00' },
+        { header: 'IVA 16%', key: 'iva16', width: 14, numFmt: '#,##0.00' },
+        { header: 'Exentas', key: 'ventasExentas', width: 14, numFmt: '#,##0.00' },
+        { header: 'Ret. IVA', key: 'ivaRetenido', width: 14, numFmt: '#,##0.00' },
+        { header: 'Total c/IVA', key: 'totalVentaIncluyendoIVA', width: 16, numFmt: '#,##0.00' },
+      ],
+      filas: filas.map((f) => ({
+        fecha: new Date(f.fecha).toLocaleDateString('es-VE'),
+        tipoOperacion: f.tipoOperacion,
+        numeroFactura: f.numeroFactura,
+        ncf: f.ncf || '',
+        rifCliente: f.rifCliente,
+        nombreCliente: f.nombreCliente,
+        baseImponible16: f.baseImponible16,
+        iva16: f.iva16,
+        ventasExentas: f.ventasExentas,
+        ivaRetenido: f.ivaRetenido || 0,
+        totalVentaIncluyendoIVA: f.totalVentaIncluyendoIVA,
+      })),
+    }])
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -79,7 +112,10 @@ export function LibroVentas() {
             Formato SENIAT - Providencia SNAT/2018/000078 · {totales?.cantidadOperaciones || 0} operación(es)
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       {/* Resumen fiscal */}

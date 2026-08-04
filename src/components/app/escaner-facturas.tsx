@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp, apiFetch } from '@/lib/store'
 import { toast } from 'sonner'
 import { calcularIVA, formatBs, formatUSD, TIPOS_FACTURA, validarRIF } from '@/lib/contabilidad/ven-nif'
-import { Upload, AlertTriangle, Calculator, FileEdit } from 'lucide-react'
+import { Upload, AlertTriangle, Calculator, FileEdit, Sparkles } from 'lucide-react'
 
 interface FacturaExtraida {
   tipoDetectado: string
@@ -43,6 +43,7 @@ interface TarifaISLR {
   codigo: string
   concepto: string
   porcentaje: number
+  usoGasto: string
 }
 
 const USOS_GASTO: Record<string, string> = {
@@ -74,6 +75,7 @@ export function EscanerFacturas() {
   const [aplicaA, setAplicaA] = useState<'COMPRA' | 'VENTA'>('COMPRA')
   const [tasaManual, setTasaManual] = useState<string>('')
   const [tarifaISLRSeleccionada, setTarifaISLRSeleccionada] = useState('')
+  const [tarifaISLRSugerida, setTarifaISLRSugerida] = useState(false)
   const [tarifasISLR, setTarifasISLR] = useState<TarifaISLR[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -107,6 +109,25 @@ export function EscanerFacturas() {
     const montoIVA = calcularIVA(resultado.baseImponible, resultado.alicuotaIVA)
     const total = resultado.baseImponible + resultado.montoExento + resultado.montoExonerado + montoIVA
     setResultado({ ...resultado, montoIVA, total })
+  }
+
+  // Al elegir la categoría del gasto, sugerimos automáticamente la tarifa de
+  // retención ISLR asociada (tabla de tarifas sin modificar, solo se
+  // automatiza encontrarla) para que el usuario no tenga que buscarla en las
+  // ~19 filas. Solo se auto-selecciona cuando hay una única tarifa posible
+  // para esa categoría; si hay varias (ej. persona natural vs. jurídica en
+  // Honorarios) se deja la lista filtrada a esas opciones, mejor que la
+  // completa, pero sin adivinar cuál aplica.
+  function seleccionarUsoGasto(v: string) {
+    setUsoGasto(v)
+    const candidatas = tarifasISLR.filter((t) => t.usoGasto === v)
+    if (candidatas.length === 1) {
+      setTarifaISLRSeleccionada(candidatas[0].codigo)
+      setTarifaISLRSugerida(true)
+    } else {
+      setTarifaISLRSeleccionada('')
+      setTarifaISLRSugerida(false)
+    }
   }
 
   async function handleFile(file: File) {
@@ -176,6 +197,7 @@ export function EscanerFacturas() {
     setAplicaA('COMPRA')
     setTasaManual('')
     setTarifaISLRSeleccionada('')
+    setTarifaISLRSugerida(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -183,6 +205,10 @@ export function EscanerFacturas() {
     if (!resultado) return
     if (!resultado.emisor.rif && !resultado.receptor.rif) {
       toast.error('Verifica el RIF de la contraparte antes de guardar')
+      return
+    }
+    if (!(resultado.tipoDetectado in TIPOS_FACTURA)) {
+      toast.error('No se pudo determinar el tipo de documento. Selecciona "Tipo de documento" antes de guardar.')
       return
     }
     setSaving(true)
@@ -453,7 +479,7 @@ export function EscanerFacturas() {
                       {esCompraOGasto && !esInventario && (
                         <div>
                           <Label>Categoría del gasto</Label>
-                          <Select value={usoGasto} onValueChange={setUsoGasto}>
+                          <Select value={usoGasto} onValueChange={seleccionarUsoGasto}>
                             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {Object.entries(USOS_GASTO).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
@@ -463,11 +489,30 @@ export function EscanerFacturas() {
                       )}
                       {esCompraOGasto && (
                         <div>
-                          <Label>Tarifa de retención ISLR (si aplica)</Label>
-                          <Select value={tarifaISLRSeleccionada || '__none__'} onValueChange={(v) => setTarifaISLRSeleccionada(v === '__none__' ? '' : v)}>
+                          <Label className="flex items-center gap-1">
+                            Tarifa de retención ISLR (si aplica)
+                            {tarifaISLRSugerida && tarifaISLRSeleccionada && (
+                              <Badge variant="outline" className="text-[10px] gap-1 font-normal"><Sparkles className="w-3 h-3" /> sugerida</Badge>
+                            )}
+                          </Label>
+                          <Select
+                            value={tarifaISLRSeleccionada || '__none__'}
+                            onValueChange={(v) => { setTarifaISLRSeleccionada(v === '__none__' ? '' : v); setTarifaISLRSugerida(false) }}
+                          >
                             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__none__">Sin retención de ISLR</SelectItem>
+                              {tarifasISLR.filter((t) => t.usoGasto === usoGasto).length > 1 && (
+                                <>
+                                  <SelectGroup>
+                                    <SelectLabel>Sugeridas para esta categoría</SelectLabel>
+                                    {tarifasISLR.filter((t) => t.usoGasto === usoGasto).map((t) => (
+                                      <SelectItem key={t.codigo} value={t.codigo}>{t.codigo} — {t.concepto} ({t.porcentaje}%)</SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                  <SelectSeparator />
+                                </>
+                              )}
                               {tarifasISLR.map((t) => (
                                 <SelectItem key={t.codigo} value={t.codigo}>{t.codigo} — {t.concepto} ({t.porcentaje}%)</SelectItem>
                               ))}

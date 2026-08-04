@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { FileBarChart, RefreshCw, TrendingUp, TrendingDown, Calculator, Info } from 'lucide-react'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { FileBarChart, RefreshCw, TrendingUp, TrendingDown, Calculator, Info, Download } from 'lucide-react'
 
 interface Declaracion {
   mes: number
@@ -47,6 +48,33 @@ export function DeclaracionIVA() {
 
   useEffect(() => { cargar() }, [mes, ano])
 
+  function exportar() {
+    if (!decl) return
+    exportarExcelCliente(`DeclaracionIVA_${decl.mesNombre}_${decl.ano}.xlsx`, [{
+      nombre: 'Declaración IVA',
+      columnas: [
+        { header: 'Concepto', key: 'concepto', width: 34 },
+        { header: 'Monto (Bs.)', key: 'monto', width: 18, numFmt: '#,##0.00' },
+      ],
+      filas: [
+        { concepto: `Período`, monto: `${decl.mesNombre} ${decl.ano}` },
+        { concepto: 'Ventas gravadas 16%', monto: decl.totalVentasGravadas16 },
+        { concepto: 'IVA Débito 16%', monto: decl.debitoFiscal16 },
+        { concepto: 'Ventas exentas', monto: decl.totalVentasExentas },
+        { concepto: 'IVA retenido por clientes', monto: decl.ivaRetenidoEnVentas },
+        { concepto: 'DÉBITO FISCAL NETO', monto: decl.debitoFiscalNeto },
+        { concepto: 'Compras gravadas 16%', monto: decl.totalComprasGravadas16 },
+        { concepto: 'IVA Crédito 16%', monto: decl.creditoFiscal16 },
+        { concepto: 'Compras sin crédito', monto: decl.totalComprasSinCredito },
+        { concepto: 'IVA retenido a proveedores', monto: decl.ivaRetenidoEnCompras },
+        { concepto: 'Arrastre período anterior', monto: decl.creditoFiscalPeriodoAnterior },
+        { concepto: 'CRÉDITO FISCAL NETO', monto: decl.creditoFiscalNeto },
+        { concepto: 'IMPUESTO DETERMINADO', monto: decl.impuestoDeterminado },
+        { concepto: 'Resultado', monto: decl.resultado === 'A_PAGAR' ? `A pagar: ${decl.montoAPagar}` : decl.resultado === 'CREDITO_FAVOR' ? `Crédito a favor: ${decl.creditoFavor}` : 'Sin impuesto' },
+      ],
+    }])
+  }
+
   const resultadoColor = decl?.resultado === 'A_PAGAR'
     ? 'bg-red-100 text-red-800 border-red-300 dark:border-red-700'
     : decl?.resultado === 'CREDITO_FAVOR'
@@ -69,7 +97,10 @@ export function DeclaracionIVA() {
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Forma 30 SENIAT - Providencia SNAT/2017/0018</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Recalcular</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Recalcular</Button>
+          <Button variant="outline" size="sm" onClick={exportar} disabled={!decl}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       {/* Selector de período */}

@@ -15,7 +15,7 @@ export async function GET() {
       where: { empresaId, fechaEmision: { gte: inicioMes, lte: finMes } },
     })
     const totalCompras = facturasMes
-      .filter((f) => f.tipo === 'COMPRA')
+      .filter((f) => f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR')
       .reduce((s, f) => s + f.totalMonedaFuncional, 0)
     const totalVentas = facturasMes
       .filter((f) => f.tipo === 'VENTA')

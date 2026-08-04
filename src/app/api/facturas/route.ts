@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa, requireAuth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { calcularIVA, calcularRetencionIVA, validarRIF, validarNCF, parseFechaVE } from '@/lib/contabilidad/ven-nif'
+import { calcularIVA, calcularRetencionIVA, validarRIF, validarNCF, parseFechaVE, TIPOS_FACTURA } from '@/lib/contabilidad/ven-nif'
 
 export async function GET(req: NextRequest) {
   try {
@@ -36,6 +36,13 @@ export async function POST(req: NextRequest) {
     const empresaId = await requireEmpresa()
     const user = await requireAuth()
     const body = await req.json()
+
+    // Rechazar tipos sin clasificar (ej. "DESCONOCIDO" del análisis con IA):
+    // si se guardan así quedan fuera del filtro de Libro de Compras/Ventas,
+    // Dashboard y Declaración de IVA, aunque el asiento sí se genere.
+    if (body.tipo && !(body.tipo in TIPOS_FACTURA)) {
+      return NextResponse.json({ error: `Tipo de documento inválido: ${body.tipo}. Selecciona un tipo antes de guardar.` }, { status: 400 })
+    }
 
     // Validar RIF
     const rifCheck = validarRIF(body.rifContraparte || '')

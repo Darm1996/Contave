@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { FileText, RefreshCw, Download } from 'lucide-react'
 
 interface Fila {
@@ -56,6 +57,39 @@ export function ReporteISLR() {
 
   useEffect(() => { cargar() }, [mes, ano])
 
+  function exportar() {
+    if (!reporte) return
+    exportarExcelCliente(`RetencionesISLR_${reporte.mesNombre}_${reporte.ano}.xlsx`, [{
+      nombre: 'Retenciones ISLR',
+      columnas: [
+        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'NCF', key: 'ncf', width: 16 },
+        { header: 'N° Factura', key: 'numeroFactura', width: 14 },
+        { header: 'RIF Beneficiario', key: 'rifBeneficiario', width: 16 },
+        { header: 'Beneficiario', key: 'nombreBeneficiario', width: 28 },
+        { header: 'Concepto', key: 'concepto', width: 24 },
+        { header: 'Código tarifa', key: 'tarifaCodigo', width: 12 },
+        { header: 'Base imponible', key: 'baseImponible', width: 16, numFmt: '#,##0.00' },
+        { header: '%', key: 'porcentajeRetencion', width: 10 },
+        { header: 'Retenido', key: 'montoRetenido', width: 16, numFmt: '#,##0.00' },
+        { header: 'Total operación', key: 'montoTotalOperacion', width: 16, numFmt: '#,##0.00' },
+      ],
+      filas: reporte.filas.map((f) => ({
+        fecha: new Date(f.fecha).toLocaleDateString('es-VE'),
+        ncf: f.ncf || '',
+        numeroFactura: f.numeroFactura || '',
+        rifBeneficiario: f.rifBeneficiario,
+        nombreBeneficiario: f.nombreBeneficiario,
+        concepto: f.concepto,
+        tarifaCodigo: f.tarifaCodigo,
+        baseImponible: f.baseImponible,
+        porcentajeRetencion: f.porcentajeRetencion,
+        montoRetenido: f.montoRetenido,
+        montoTotalOperacion: f.montoTotalOperacion,
+      })),
+    }])
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -66,7 +100,10 @@ export function ReporteISLR() {
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">ARC - Agentes de Retención ISLR · Providencia SNAT/2016/0068</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar} disabled={!reporte}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       {/* Selector período */}

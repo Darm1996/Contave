@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { Scale, TrendingUp, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { exportarExcelCliente, type HojaExport } from '@/lib/exports/cliente'
+import { Scale, TrendingUp, RefreshCw, CheckCircle2, AlertTriangle, Download } from 'lucide-react'
 
 interface CuentaSaldo {
   codigo: string
@@ -71,6 +72,52 @@ export function EstadosFinancieros() {
 
   useEffect(() => { cargar() }, [])
 
+  function exportar() {
+    const cols = [
+      { header: 'Código', key: 'codigo', width: 14 },
+      { header: 'Cuenta', key: 'nombre', width: 32 },
+      { header: 'Saldo', key: 'saldo', width: 16, numFmt: '#,##0.00' },
+    ]
+    const hojas: HojaExport[] = []
+    if (balance) {
+      const filasBalance = [
+        ...balance.activoCorriente.map((c) => ({ ...c, seccion: 'Activo Corriente' })),
+        ...balance.activoNoCorriente.map((c) => ({ ...c, seccion: 'Activo No Corriente' })),
+        ...balance.pasivoCorriente.map((c) => ({ ...c, seccion: 'Pasivo Corriente' })),
+        ...balance.patrimonio.map((c) => ({ ...c, seccion: 'Patrimonio' })),
+      ]
+      hojas.push({
+        nombre: 'Balance General',
+        columnas: [{ header: 'Sección', key: 'seccion', width: 20 }, ...cols],
+        filas: [
+          ...filasBalance,
+          { seccion: '', codigo: '', nombre: 'TOTAL ACTIVO', saldo: balance.totalActivo },
+          { seccion: '', codigo: '', nombre: 'Resultado del ejercicio', saldo: balance.resultadoEjercicio },
+          { seccion: '', codigo: '', nombre: 'TOTAL PASIVO + PATRIMONIO', saldo: balance.totalPasivo + balance.totalPatrimonio + balance.resultadoEjercicio },
+        ],
+      })
+    }
+    if (estado) {
+      hojas.push({
+        nombre: 'Estado de Resultados',
+        columnas: [{ header: 'Sección', key: 'seccion', width: 24 }, ...cols],
+        filas: [
+          ...estado.ingresosOperacionales.map((c) => ({ ...c, seccion: 'Ingresos Operacionales' })),
+          ...estado.costoVentas.map((c) => ({ ...c, seccion: 'Costo de Ventas', saldo: -c.saldo })),
+          { seccion: '', codigo: '', nombre: 'UTILIDAD BRUTA', saldo: estado.utilidadBruta },
+          ...estado.gastosOperacionales.map((c) => ({ ...c, seccion: 'Gastos Operacionales', saldo: -c.saldo })),
+          { seccion: '', codigo: '', nombre: 'UTILIDAD OPERACIONAL', saldo: estado.utilidadOperacional },
+          ...estado.ingresosNoOperacionales.map((c) => ({ ...c, seccion: 'Ingresos No Operacionales' })),
+          ...estado.gastosNoOperacionales.map((c) => ({ ...c, seccion: 'Gastos No Operacionales', saldo: -c.saldo })),
+          { seccion: '', codigo: '', nombre: 'UTILIDAD ANTES DE ISLR', saldo: estado.utilidadAntesISLR },
+          { seccion: '', codigo: '', nombre: 'ISLR estimado (34%)', saldo: -estado.islrEstimado },
+          { seccion: '', codigo: '', nombre: 'UTILIDAD NETA DEL EJERCICIO', saldo: estado.utilidadNeta },
+        ],
+      })
+    }
+    if (hojas.length > 0) exportarExcelCliente(`EstadosFinancieros_${desde}_${hasta}.xlsx`, hojas)
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -78,7 +125,10 @@ export function EstadosFinancieros() {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Estados Financieros</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Balance General y Estado de Resultados — VEN-NIF Pymes</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar} disabled={!balance && !estado}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       <Card>

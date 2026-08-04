@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { RefreshCw, Download } from 'lucide-react'
 
 interface Fila {
@@ -68,6 +69,40 @@ export function LibroCompras() {
 
   useEffect(() => { cargar() }, [])
 
+  function exportar() {
+    exportarExcelCliente(`LibroCompras_${new Date().toISOString().slice(0, 10)}.xlsx`, [{
+      nombre: 'Libro de Compras',
+      columnas: [
+        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'Tipo', key: 'tipoOperacion', width: 14 },
+        { header: 'N° Factura', key: 'numeroFactura', width: 14 },
+        { header: 'NCF', key: 'ncf', width: 16 },
+        { header: 'RIF Proveedor', key: 'rifProveedor', width: 16 },
+        { header: 'Nombre Proveedor', key: 'nombreProveedor', width: 28 },
+        { header: 'Base 16%', key: 'baseImponible16', width: 14, numFmt: '#,##0.00' },
+        { header: 'IVA 16%', key: 'iva16', width: 14, numFmt: '#,##0.00' },
+        { header: 'Sin Crédito Fiscal', key: 'comprasSinCreditoFiscal', width: 16, numFmt: '#,##0.00' },
+        { header: 'Ret. IVA', key: 'ivaRetenido', width: 14, numFmt: '#,##0.00' },
+        { header: 'Ret. ISLR', key: 'islrRetenido', width: 14, numFmt: '#,##0.00' },
+        { header: 'Total c/IVA', key: 'totalCompraIncluyendoIVA', width: 16, numFmt: '#,##0.00' },
+      ],
+      filas: filas.map((f) => ({
+        fecha: new Date(f.fecha).toLocaleDateString('es-VE'),
+        tipoOperacion: f.tipoOperacion,
+        numeroFactura: f.numeroFactura,
+        ncf: f.ncf || '',
+        rifProveedor: f.rifProveedor,
+        nombreProveedor: f.nombreProveedor,
+        baseImponible16: f.baseImponible16,
+        iva16: f.iva16,
+        comprasSinCreditoFiscal: f.comprasSinCreditoFiscal,
+        ivaRetenido: f.ivaRetenido || 0,
+        islrRetenido: f.islrRetenido || 0,
+        totalCompraIncluyendoIVA: f.totalCompraIncluyendoIVA,
+      })),
+    }])
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -77,7 +112,10 @@ export function LibroCompras() {
             Formato SENIAT - Providencia SNAT/2018/000078 · {totales?.cantidadOperaciones || 0} operación(es)
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       {/* Resumen fiscal */}

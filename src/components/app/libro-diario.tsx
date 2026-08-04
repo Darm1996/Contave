@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { Search, RefreshCw, Download } from 'lucide-react'
 
 interface Fila {
@@ -46,6 +47,32 @@ export function LibroDiario() {
 
   useEffect(() => { cargar() }, [])
 
+  function exportar() {
+    exportarExcelCliente(`LibroDiario_${new Date().toISOString().slice(0, 10)}.xlsx`, [{
+      nombre: 'Libro Diario',
+      columnas: [
+        { header: 'N° Asiento', key: 'numero', width: 12 },
+        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'Código Cuenta', key: 'codigoCuenta', width: 14 },
+        { header: 'Cuenta', key: 'nombreCuenta', width: 30 },
+        { header: 'Descripción', key: 'descripcion', width: 30 },
+        { header: 'Referencia', key: 'referencia', width: 16 },
+        { header: 'Débito', key: 'debit', width: 16, numFmt: '#,##0.00' },
+        { header: 'Crédito', key: 'credit', width: 16, numFmt: '#,##0.00' },
+      ],
+      filas: filtradas.map((f) => ({
+        numero: f.numero,
+        fecha: new Date(f.fecha).toLocaleDateString('es-VE'),
+        codigoCuenta: f.codigoCuenta,
+        nombreCuenta: f.nombreCuenta,
+        descripcion: f.descripcion,
+        referencia: f.referencia || '',
+        debit: f.debit,
+        credit: f.credit,
+      })),
+    }])
+  }
+
   const filtradas = filas.filter((f) => {
     if (!filtro) return true
     const s = `${f.descripcion} ${f.nombreCuenta} ${f.codigoCuenta} ${f.referencia || ''}`.toLowerCase()
@@ -66,7 +93,10 @@ export function LibroDiario() {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Libro Diario</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">{totales.cantidad} asiento(s) · Total débito: {formatBs(totales.debit)} · Total crédito: {formatBs(totales.credit)}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       <Card>
