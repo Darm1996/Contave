@@ -221,23 +221,28 @@ export function EscanerFacturas() {
       toast.error(r.error || 'Error al guardar')
       return
     }
-    setFacturaGuardadaId(r.data?.factura.id || null)
-    toast.success('Factura guardada. Revisa las opciones contables y contabilízala.')
+    const nuevaFacturaId = r.data?.factura.id || null
+    setFacturaGuardadaId(nuevaFacturaId)
+    // Se contabiliza automáticamente al guardar para que el libro diario, el
+    // mayor, el balance de comprobación y el dashboard queden al día de una
+    // vez, sin depender de que el usuario encuentre y pulse un segundo botón.
+    if (nuevaFacturaId) await contabilizar(nuevaFacturaId)
   }
 
-  async function contabilizar() {
-    if (!facturaGuardadaId) return
+  async function contabilizar(idParam?: string) {
+    const id = idParam || facturaGuardadaId
+    if (!id) return
     setContabilizando(true)
-    const r = await apiFetch<{ asiento: { numero: string } }>(`/api/facturas/${facturaGuardadaId}/contabilizar`, {
+    const r = await apiFetch<{ asiento: { numero: string } }>(`/api/facturas/${id}/contabilizar`, {
       method: 'POST',
       body: JSON.stringify({ esInventario, usoGasto, clienteRetieneIVA, aplicaA }),
     })
     setContabilizando(false)
     if (!r.ok) {
-      toast.error(r.error || 'Error al contabilizar')
+      toast.error(`Factura guardada, pero no se pudo contabilizar automáticamente: ${r.error || 'Error'}. Ajusta las opciones contables y vuelve a intentarlo.`)
       return
     }
-    toast.success(`Asiento #${r.data?.asiento.numero} generado.`)
+    toast.success(`Factura guardada y contabilizada. Asiento #${r.data?.asiento.numero} generado.`)
     reset()
   }
 
@@ -295,7 +300,8 @@ export function EscanerFacturas() {
               <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">Los datos extraídos aparecerán aquí</p>
             )}
             {resultado && (
-              <ScrollArea className="h-[520px] pr-3">
+              <div className="flex flex-col">
+              <ScrollArea className="h-[440px] pr-3">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant={resultado.confianza >= 70 ? 'default' : 'secondary'}>
@@ -435,7 +441,7 @@ export function EscanerFacturas() {
                     <Textarea value={resultado.descripcion} onChange={(e) => actualizar('descripcion', e.target.value)} disabled={!!facturaGuardadaId} rows={2} />
                   </div>
 
-                  {facturaGuardadaId && (
+                  {(esCompraOGasto || esVenta) && (
                     <div className="space-y-3 border-t pt-4">
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Opciones para generar el asiento contable</p>
                       {esCompraOGasto && (
@@ -477,12 +483,12 @@ export function EscanerFacturas() {
                       )}
                     </div>
                   )}
-
-                  <Button className="w-full" onClick={!facturaGuardadaId ? guardarFactura : contabilizar} disabled={saving || contabilizando}>
-                    {saving ? 'Guardando...' : contabilizando ? 'Contabilizando...' : !facturaGuardadaId ? 'Guardar Factura' : 'Contabilizar'}
-                  </Button>
                 </div>
               </ScrollArea>
+              <Button className="w-full mt-4 flex-shrink-0" onClick={!facturaGuardadaId ? guardarFactura : () => contabilizar()} disabled={saving || contabilizando}>
+                {saving ? 'Guardando...' : contabilizando ? 'Contabilizando...' : !facturaGuardadaId ? 'Guardar y Contabilizar' : 'Reintentar Contabilización'}
+              </Button>
+              </div>
             )}
           </CardContent>
         </Card>
