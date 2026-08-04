@@ -98,8 +98,8 @@ export function TasaCambio() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Tasa de Cambio BCV</h2>
-          <p className="text-sm text-slate-500">Administra las tasas USD/Bs. para conversión de facturas en dólares</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Tasa de Cambio BCV</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Administra las tasas USD/Bs. para conversión de facturas en dólares</p>
         </div>
         <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
       </div>
@@ -111,12 +111,12 @@ export function TasaCambio() {
             {tasas.length > 0 ? (
               <>
                 <div className="text-3xl font-bold">Bs. {tasas[0].tasa.toFixed(2)}</div>
-                <div className="text-xs text-slate-400 mt-1">
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   {new Date(tasas[0].fecha).toLocaleDateString('es-VE')} · {tasas[0].fuente}
                 </div>
               </>
             ) : (
-              <div className="text-sm text-slate-400">Sin tasas registradas</div>
+              <div className="text-sm text-slate-400 dark:text-slate-500">Sin tasas registradas</div>
             )}
           </div>
           <DollarSign className="w-12 h-12 text-emerald-400" />
@@ -124,7 +124,7 @@ export function TasaCambio() {
       </Card>
 
       {/* Scraping BCV automático */}
-      <Card className="border-emerald-200 bg-emerald-50/50">
+      <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/20">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <DownloadCloud className="w-4 h-4 text-emerald-600" /> Obtener tasa automática del BCV
@@ -144,14 +144,14 @@ export function TasaCambio() {
                 <Button onClick={guardarBCV} disabled={bcvLoading} className="bg-emerald-600 hover:bg-emerald-700">
                   <Plus className="w-4 h-4 mr-1" /> Guardar en base de datos
                 </Button>
-                <Badge variant="outline" className="text-emerald-700 border-emerald-300 self-center">
+                <Badge variant="outline" className="text-emerald-700 border-emerald-300 dark:border-emerald-700 self-center">
                   {bcvPreview.fuente === 'BCV-fallback' ? '⚠ Tasa de respaldo (BCV no respondió)' : '✓ Tasa actual del BCV'}
                 </Badge>
               </>
             )}
           </div>
           {bcvPreview && (
-            <Alert className="bg-white border-emerald-200">
+            <Alert className="bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-800">
               <Info className="w-4 h-4 text-emerald-600" />
               <AlertDescription>
                 Tasa obtenida: <strong>Bs. {bcvPreview.tasa.toFixed(2)}</strong> · Fecha: {new Date(bcvPreview.fecha).toLocaleDateString('es-VE')} · Fuente: {bcvPreview.fuente}
@@ -200,25 +200,25 @@ export function TasaCambio() {
         <CardContent className="p-0">
           <ScrollArea className="h-[400px]">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-slate-100">
+              <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800">
                 <tr className="text-left">
-                  <th className="px-3 py-2 font-semibold text-slate-700">Fecha</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Moneda</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700 text-right">Tasa (Bs.)</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Fuente</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Fecha</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Moneda</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300 text-right">Tasa (Bs.)</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Fuente</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={4} className="text-center py-8 text-slate-400">Cargando...</td></tr>
+                  <tr><td colSpan={4} className="text-center py-8 text-slate-400 dark:text-slate-500">Cargando...</td></tr>
                 ) : tasas.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center py-8 text-slate-400">Sin tasas registradas</td></tr>
+                  <tr><td colSpan={4} className="text-center py-8 text-slate-400 dark:text-slate-500">Sin tasas registradas</td></tr>
                 ) : tasas.map((t) => (
-                  <tr key={t.id} className="border-t hover:bg-slate-50">
-                    <td className="px-3 py-2 text-slate-700">{new Date(t.fecha).toLocaleDateString('es-VE')}</td>
-                    <td className="px-3 py-2 text-slate-600">{t.monedaRef}</td>
-                    <td className="px-3 py-2 text-right font-mono font-semibold text-slate-800">{t.tasa.toFixed(2)}</td>
-                    <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100">{t.fuente}</span></td>
+                  <tr key={t.id} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                    <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{new Date(t.fecha).toLocaleDateString('es-VE')}</td>
+                    <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{t.monedaRef}</td>
+                    <td className="px-3 py-2 text-right font-mono font-semibold text-slate-800 dark:text-slate-100">{t.tasa.toFixed(2)}</td>
+                    <td className="px-3 py-2"><span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800">{t.fuente}</span></td>
                   </tr>
                 ))}
               </tbody>

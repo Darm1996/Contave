@@ -72,8 +72,8 @@ export function Exportar() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold text-slate-800">Exportar y Sincronizar</h2>
-        <p className="text-sm text-slate-500">Descarga el Excel completo o sincroniza con Google Sheets</p>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Exportar y Sincronizar</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Descarga el Excel completo o sincroniza con Google Sheets</p>
       </div>
 
       <Card>
@@ -100,7 +100,7 @@ export function Exportar() {
               Descargar Excel
             </Button>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Si no seleccionas fechas, se exportarán todos los registros de {empresaActiva?.nombre}.
           </p>
         </CardContent>
@@ -117,16 +117,16 @@ export function Exportar() {
         </CardHeader>
         <CardContent className="space-y-3">
           {checkingGs ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500">
+            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
               <Loader2 className="w-4 h-4 animate-spin" /> Verificando configuración...
             </div>
           ) : gsEnabled ? (
             <>
               <div className="flex items-center gap-2">
-                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:border-emerald-800">
                   <CheckCircle2 className="w-3 h-3 mr-1" /> Configurado
                 </Badge>
-                <span className="text-sm text-slate-600">Google Sheets listo para sincronizar</span>
+                <span className="text-sm text-slate-600 dark:text-slate-400">Google Sheets listo para sincronizar</span>
               </div>
               <Button onClick={syncGoogleSheets} disabled={syncing} className="bg-cyan-600 hover:bg-cyan-700">
                 {syncing ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Cloud className="w-4 h-4 mr-1" />}
@@ -141,12 +141,12 @@ export function Exportar() {
                 <p className="text-sm mb-2">
                   Para habilitar la sincronización, configura estas variables de entorno en el servidor:
                 </p>
-                <ul className="text-xs font-mono space-y-1 bg-slate-50 p-2 rounded">
+                <ul className="text-xs font-mono space-y-1 bg-slate-50 dark:bg-slate-900 p-2 rounded">
                   <li>GOOGLE_SHEETS_CLIENT_EMAIL=tu-sa@proyecto.iam.gserviceaccount.com</li>
                   <li>GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."</li>
                   <li>GOOGLE_SHEETS_SPREADSHEET_ID=1ABC123...</li>
                 </ul>
-                <p className="text-xs mt-2 text-slate-600">
+                <p className="text-xs mt-2 text-slate-600 dark:text-slate-400">
                   Pasos: 1) Crear Service Account en Google Cloud Console, 2) Habilitar Google Sheets API,
                   3) Compartir el spreadsheet con el email de la SA, 4) Configurar variables de entorno.
                 </p>

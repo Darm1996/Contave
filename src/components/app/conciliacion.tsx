@@ -183,11 +183,11 @@ export function Conciliacion() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Landmark className="w-6 h-6 text-cyan-600" />
             Conciliación Bancaria
           </h2>
-          <p className="text-sm text-slate-500">Compara extracto bancario con libro contable</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Compara extracto bancario con libro contable</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={cargarConciliaciones}>
@@ -256,24 +256,24 @@ export function Conciliacion() {
       {/* Lista de conciliaciones */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {loading ? (
-          <Card><CardContent className="text-center py-6 text-slate-400">Cargando...</CardContent></Card>
+          <Card><CardContent className="text-center py-6 text-slate-400 dark:text-slate-500">Cargando...</CardContent></Card>
         ) : conciliaciones.length === 0 ? (
-          <Card><CardContent className="text-center py-6 text-slate-400">No hay conciliaciones. Crea la primera.</CardContent></Card>
+          <Card><CardContent className="text-center py-6 text-slate-400 dark:text-slate-500">No hay conciliaciones. Crea la primera.</CardContent></Card>
         ) : conciliaciones.map((c) => (
           <Card key={c.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => verDetalle(c.id)}>
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-2">
                 <Badge variant={c.estado === 'CUADRADO' ? 'default' : 'secondary'}
-                  className={c.estado === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-amber-100 text-amber-800 border-amber-300'}>
+                  className={c.estado === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-700' : 'bg-amber-100 text-amber-800 border-amber-300 dark:border-amber-700'}>
                   {c.estado === 'CUADRADO' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <AlertTriangle className="w-3 h-3 mr-1" />}
                   {c.estado}
                 </Badge>
-                <span className="text-xs text-slate-500">{c._count.movimientos} mov.</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{c._count.movimientos} mov.</span>
               </div>
-              <h3 className="font-semibold text-slate-800 text-sm">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-sm">
                 {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][c.mes - 1]} {c.ano}
               </h3>
-              <p className="text-xs text-slate-500">{c.cuenta.codigo} {c.cuenta.nombre}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{c.cuenta.codigo} {c.cuenta.nombre}</p>
               {c.diferencia !== 0 && (
                 <p className="text-xs text-amber-700 mt-1">Diferencia: {formatBs(c.diferencia)}</p>
               )}
@@ -289,7 +289,7 @@ export function Conciliacion() {
             <CardTitle className="text-base flex items-center justify-between">
               <span>
                 Conciliación — {seleccionada.cuenta?.codigo} {seleccionada.cuenta?.nombre}
-                <span className="ml-2 text-sm font-normal text-slate-500">
+                <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
                   {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][seleccionada.mes - 1]} {seleccionada.ano}
                 </span>
               </span>
@@ -302,20 +302,20 @@ export function Conciliacion() {
           <CardContent className="space-y-4">
             {/* Resumen de saldos */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-slate-50 p-3 rounded-md">
-                <div className="text-xs text-slate-500">Saldo inicial banco</div>
+              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-md">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Saldo inicial banco</div>
                 <div className="text-lg font-bold">{formatBs(seleccionada.saldoInicialBanco)}</div>
               </div>
-              <div className="bg-slate-50 p-3 rounded-md">
-                <div className="text-xs text-slate-500">Saldo final banco</div>
+              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-md">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Saldo final banco</div>
                 <div className="text-lg font-bold">{formatBs(seleccionada.saldoFinalBanco)}</div>
               </div>
-              <div className="bg-slate-50 p-3 rounded-md">
-                <div className="text-xs text-slate-500">Saldo final libro</div>
+              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-md">
+                <div className="text-xs text-slate-500 dark:text-slate-400">Saldo final libro</div>
                 <div className="text-lg font-bold">{formatBs(seleccionada.saldoFinalLibro)}</div>
               </div>
-              <div className={`p-3 rounded-md ${seleccionada.diferencia === 0 ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                <div className="text-xs text-slate-500">Diferencia</div>
+              <div className={`p-3 rounded-md ${seleccionada.diferencia === 0 ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-amber-50 dark:bg-amber-900/20'}`}>
+                <div className="text-xs text-slate-500 dark:text-slate-400">Diferencia</div>
                 <div className={`text-lg font-bold ${seleccionada.diferencia === 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {formatBs(seleccionada.diferencia)}
                 </div>
@@ -341,10 +341,10 @@ export function Conciliacion() {
             )}
 
             {/* Cargar extracto */}
-            <div className="border rounded-md p-3 bg-cyan-50/30">
+            <div className="border rounded-md p-3 bg-cyan-50/30 dark:bg-cyan-900/20">
               <Label className="text-sm font-semibold">Cargar movimientos del extracto bancario</Label>
-              <p className="text-xs text-slate-500 mb-2">
-                Pega los movimientos del extracto bancario. Formato: <code className="bg-white px-1 rounded">fecha, descripción, monto</code> (uno por línea).
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                Pega los movimientos del extracto bancario. Formato: <code className="bg-white dark:bg-slate-900 px-1 rounded">fecha, descripción, monto</code> (uno por línea).
                 El sistema auto-conciliará los que coincidan con asientos del libro.
               </p>
               <textarea
@@ -366,22 +366,22 @@ export function Conciliacion() {
               </Label>
               <ScrollArea className="h-[400px] border rounded-md">
                 <table className="w-full text-xs">
-                  <thead className="bg-slate-100 sticky top-0">
+                  <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                     <tr className="text-left">
-                      <th className="px-2 py-2 font-semibold text-slate-700">Fecha</th>
-                      <th className="px-2 py-2 font-semibold text-slate-700">Descripción</th>
-                      <th className="px-2 py-2 font-semibold text-slate-700 text-right">Monto</th>
-                      <th className="px-2 py-2 font-semibold text-slate-700 text-center">Estado</th>
-                      <th className="px-2 py-2 font-semibold text-slate-700 text-center">Acción</th>
+                      <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300">Fecha</th>
+                      <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300">Descripción</th>
+                      <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300 text-right">Monto</th>
+                      <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300 text-center">Estado</th>
+                      <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300 text-center">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
                     {!seleccionada.movimientos || seleccionada.movimientos.length === 0 ? (
-                      <tr><td colSpan={5} className="text-center py-6 text-slate-400">Sin movimientos cargados</td></tr>
+                      <tr><td colSpan={5} className="text-center py-6 text-slate-400 dark:text-slate-500">Sin movimientos cargados</td></tr>
                     ) : seleccionada.movimientos.map((m) => (
-                      <tr key={m.id} className={`border-t hover:bg-slate-50 ${m.conciliado ? 'bg-emerald-50/30' : ''}`}>
-                        <td className="px-2 py-2 text-slate-600">{new Date(m.fecha).toLocaleDateString('es-VE')}</td>
-                        <td className="px-2 py-2 text-slate-700">{m.descripcion}</td>
+                      <tr key={m.id} className={`border-t hover:bg-slate-50 dark:hover:bg-slate-800/60 ${m.conciliado ? 'bg-emerald-50/30 dark:bg-emerald-900/20' : ''}`}>
+                        <td className="px-2 py-2 text-slate-600 dark:text-slate-400">{new Date(m.fecha).toLocaleDateString('es-VE')}</td>
+                        <td className="px-2 py-2 text-slate-700 dark:text-slate-300">{m.descripcion}</td>
                         <td className={`px-2 py-2 text-right font-mono ${m.monto >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                           {m.monto >= 0 ? '+' : ''}{formatBs(m.monto)}
                         </td>

@@ -93,11 +93,11 @@ export function Ejercicios() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Calendar className="w-6 h-6 text-emerald-600" />
             Ejercicios Fiscales
           </h2>
-          <p className="text-sm text-slate-500">Gestiona cierres anuales y aperturas de nuevos ejercicios</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Gestiona cierres anuales y aperturas de nuevos ejercicios</p>
         </div>
         <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
       </div>
@@ -119,7 +119,7 @@ export function Ejercicios() {
 
       {/* Crear ejercicios faltantes */}
       {ejerciciosFaltantes.length > 0 && (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
@@ -140,9 +140,9 @@ export function Ejercicios() {
 
       {/* Lista de ejercicios */}
       {loading ? (
-        <Card><CardContent className="text-center py-8 text-slate-400">Cargando...</CardContent></Card>
+        <Card><CardContent className="text-center py-8 text-slate-400 dark:text-slate-500">Cargando...</CardContent></Card>
       ) : ejercicios.length === 0 ? (
-        <Card><CardContent className="text-center py-8 text-slate-400">No hay ejercicios. Crea el primero arriba.</CardContent></Card>
+        <Card><CardContent className="text-center py-8 text-slate-400 dark:text-slate-500">No hay ejercicios. Crea el primero arriba.</CardContent></Card>
       ) : (
         <div className="space-y-3">
           {ejercicios.map((e) => (
@@ -151,20 +151,20 @@ export function Ejercicios() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-4">
                     <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-bold text-xl ${
-                      e.estado === 'CERRADO' ? 'bg-slate-200 text-slate-600' : 'bg-gradient-to-br from-emerald-500 to-cyan-600 text-white'
+                      e.estado === 'CERRADO' ? 'bg-slate-200 text-slate-600 dark:text-slate-400' : 'bg-gradient-to-br from-emerald-500 to-cyan-600 text-white'
                     }`}>
                       {e.ano}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-slate-800">Ejercicio {e.ano}</h3>
+                        <h3 className="font-semibold text-slate-800 dark:text-slate-100">Ejercicio {e.ano}</h3>
                         <Badge variant={e.estado === 'CERRADO' ? 'secondary' : 'default'}
-                          className={e.estado === 'CERRADO' ? 'bg-slate-200' : 'bg-emerald-100 text-emerald-800 border-emerald-300'}>
+                          className={e.estado === 'CERRADO' ? 'bg-slate-200' : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-700'}>
                           {e.estado === 'CERRADO' ? <Lock className="w-3 h-3 mr-1" /> : <Unlock className="w-3 h-3 mr-1" />}
                           {e.estado}
                         </Badge>
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
+                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                         {new Date(e.fechaInicio).toLocaleDateString('es-VE')} — {new Date(e.fechaCierre).toLocaleDateString('es-VE')}
                         {e.cerradoEn && ` · Cerrado el ${new Date(e.cerradoEn).toLocaleDateString('es-VE')}`}
                       </div>
@@ -173,7 +173,7 @@ export function Ejercicios() {
                   <div className="flex items-center gap-4">
                     {e.estado === 'CERRADO' && e.utilidadNeta !== null && (
                       <div className="text-right">
-                        <div className="text-xs text-slate-500">Utilidad neta</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Utilidad neta</div>
                         <div className={`text-lg font-bold ${e.utilidadNeta >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                           {formatBs(e.utilidadNeta)}
                         </div>
@@ -229,7 +229,7 @@ export function Ejercicios() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="bg-slate-50 p-3 rounded-md text-sm space-y-2">
+              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-md text-sm space-y-2">
                 <div className="flex items-start gap-2">
                   <TrendingUp className="w-4 h-4 text-emerald-600 mt-0.5" />
                   <span>Se cancelarán todas las cuentas de <strong>ingresos</strong> del año</span>
