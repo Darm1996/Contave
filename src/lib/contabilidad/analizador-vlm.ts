@@ -124,7 +124,7 @@ export async function analizarFactura(imageBase64: string, mimeType: string = 'i
 
   const client = new GoogleGenerativeAI(apiKey);
   const model = client.getGenerativeModel({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-3.6-flash',
     generationConfig: { responseMimeType: 'application/json' },
   });
 
