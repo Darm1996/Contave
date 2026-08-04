@@ -63,8 +63,8 @@ export function LibroDiario() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Libro Diario</h2>
-          <p className="text-sm text-slate-500">{totales.cantidad} asiento(s) · Total débito: {formatBs(totales.debit)} · Total crédito: {formatBs(totales.credit)}</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Libro Diario</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{totales.cantidad} asiento(s) · Total débito: {formatBs(totales.debit)} · Total crédito: {formatBs(totales.credit)}</p>
         </div>
         <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
       </div>
@@ -73,17 +73,17 @@ export function LibroDiario() {
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             <div>
-              <label className="text-xs text-slate-500">Desde</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400">Desde</label>
               <Input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-slate-500">Hasta</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400">Hasta</label>
               <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-slate-500">Buscar</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400">Buscar</label>
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-2 top-3 text-slate-400" />
+                <Search className="w-4 h-4 absolute left-2 top-3 text-slate-400 dark:text-slate-500" />
                 <Input value={filtro} onChange={(e) => setFiltro(e.target.value)} placeholder="Descripción, cuenta..." className="pl-8" />
               </div>
             </div>
@@ -98,35 +98,35 @@ export function LibroDiario() {
         <CardContent className="p-0">
           <ScrollArea className="h-[600px]">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-slate-100 z-10">
+              <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                 <tr className="text-left">
-                  <th className="px-3 py-2 font-semibold text-slate-700">N°</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Fecha</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Cuenta</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Descripción / Ref.</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700 text-right">Débito</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700 text-right">Crédito</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">N°</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Fecha</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Cuenta</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Descripción / Ref.</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300 text-right">Débito</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300 text-right">Crédito</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(asientos).length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-8 text-slate-400">
+                  <tr><td colSpan={6} className="text-center py-8 text-slate-400 dark:text-slate-500">
                     {loading ? 'Cargando...' : 'No hay asientos en el período seleccionado'}
                   </td></tr>
                 ) : (
                   Object.entries(asientos).map(([num, lineas]) => (
                     <>
                       {lineas.map((l, i) => (
-                        <tr key={`${num}-${i}`} className="border-t hover:bg-slate-50">
-                          <td className="px-3 py-2 text-slate-600">{i === 0 ? num : ''}</td>
-                          <td className="px-3 py-2 text-slate-600">{i === 0 ? new Date(l.fecha).toLocaleDateString('es-VE') : ''}</td>
+                        <tr key={`${num}-${i}`} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{i === 0 ? num : ''}</td>
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-400">{i === 0 ? new Date(l.fecha).toLocaleDateString('es-VE') : ''}</td>
                           <td className="px-3 py-2">
-                            <span className="font-mono text-xs text-slate-500">{l.codigoCuenta}</span>
-                            <div className="text-slate-800">{l.nombreCuenta}</div>
+                            <span className="font-mono text-xs text-slate-500 dark:text-slate-400">{l.codigoCuenta}</span>
+                            <div className="text-slate-800 dark:text-slate-100">{l.nombreCuenta}</div>
                           </td>
-                          <td className="px-3 py-2 text-slate-600">
-                            {i === 0 && <div className="font-medium text-slate-800">{l.descripcion}</div>}
-                            {l.referencia && <div className="text-xs text-slate-500">Ref: {l.referencia}</div>}
+                          <td className="px-3 py-2 text-slate-600 dark:text-slate-400">
+                            {i === 0 && <div className="font-medium text-slate-800 dark:text-slate-100">{l.descripcion}</div>}
+                            {l.referencia && <div className="text-xs text-slate-500 dark:text-slate-400">Ref: {l.referencia}</div>}
                           </td>
                           <td className="px-3 py-2 text-right font-mono text-emerald-700">
                             {l.debit > 0 ? formatBs(l.debit) : ''}
@@ -137,7 +137,7 @@ export function LibroDiario() {
                         </tr>
                       ))}
                       <tr className="border-t bg-slate-50/50">
-                        <td colSpan={4} className="px-3 py-1 text-right text-xs font-semibold text-slate-600">
+                        <td colSpan={4} className="px-3 py-1 text-right text-xs font-semibold text-slate-600 dark:text-slate-400">
                           Totales asiento #{num}:
                         </td>
                         <td className="px-3 py-1 text-right text-xs font-mono font-semibold text-emerald-700">

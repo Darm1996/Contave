@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser, setSessionCookie, requireAuth } from '@/lib/auth'
+import { getCurrentUser, setSessionCookie, requireAuth, requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { CUENTAS_VEN_NIF } from '@/lib/contabilidad/plan-cuentas-ven-nif'
 
@@ -105,6 +105,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ empresa })
   } catch (e: any) {
     console.error('Create empresa error:', e)
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+// PATCH: actualizar datos de la empresa activa
+export async function PATCH(req: NextRequest) {
+  try {
+    const user = await requireAuth()
+    const empresaId = await requireEmpresa()
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'Solo los administradores pueden editar la empresa' }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const data: Record<string, unknown> = {}
+    if (body.nombre != null) {
+      if (!body.nombre.trim()) return NextResponse.json({ error: 'El nombre no puede estar vacío' }, { status: 400 })
+      data.nombre = body.nombre.trim()
+    }
+    if (body.direccion != null) data.direccion = body.direccion || null
+    if (body.telefono != null) data.telefono = body.telefono || null
+    if (body.email != null) data.email = body.email || null
+    if (body.esAgenteRetencionIVA != null) data.esAgenteRetencionIVA = Boolean(body.esAgenteRetencionIVA)
+    if (body.esContribuyenteEspecial != null) data.esContribuyenteEspecial = Boolean(body.esContribuyenteEspecial)
+    if (body.alicuotaIVA != null) {
+      const alicuota = Number(body.alicuotaIVA)
+      if (!Number.isFinite(alicuota) || alicuota < 0 || alicuota > 100) {
+        return NextResponse.json({ error: 'Alícuota de IVA inválida' }, { status: 400 })
+      }
+      data.alicuotaIVA = alicuota
+    }
+    if (body.monedaFuncional != null) data.monedaFuncional = body.monedaFuncional
+
+    const empresa = await db.empresa.update({ where: { id: empresaId }, data })
+    return NextResponse.json({ empresa })
+  } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }

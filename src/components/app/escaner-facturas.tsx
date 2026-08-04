@@ -12,8 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useApp, apiFetch } from '@/lib/store'
 import { toast } from 'sonner'
-import { calcularIVA, formatBs, formatUSD, TIPOS_FACTURA } from '@/lib/contabilidad/ven-nif'
-import { Upload, AlertTriangle, Calculator } from 'lucide-react'
+import { calcularIVA, formatBs, formatUSD, TIPOS_FACTURA, validarRIF } from '@/lib/contabilidad/ven-nif'
+import { Upload, AlertTriangle, Calculator, FileEdit } from 'lucide-react'
 
 interface FacturaExtraida {
   tipoDetectado: string
@@ -84,7 +84,7 @@ export function EscanerFacturas() {
   }, [])
 
   if (!empresaActiva) {
-    return <div className="p-10 text-center text-slate-500">Por favor, selecciona una empresa activa para usar el escáner.</div>
+    return <div className="p-10 text-center text-slate-500 dark:text-slate-400">Por favor, selecciona una empresa activa para usar el escáner.</div>
   }
 
   function actualizar<K extends keyof FacturaExtraida>(campo: K, valor: FacturaExtraida[K]) {
@@ -92,7 +92,14 @@ export function EscanerFacturas() {
   }
 
   function actualizarParte(parte: 'emisor' | 'receptor', campo: 'nombre' | 'rif', valor: string) {
-    setResultado((r) => (r ? { ...r, [parte]: { ...r[parte], [campo]: valor } } : r))
+    setResultado((r) => {
+      if (!r) return r
+      if (campo === 'rif') {
+        const check = validarRIF(valor)
+        return { ...r, [parte]: { ...r[parte], rif: valor, rifValido: valor === '' || check.valido } }
+      }
+      return { ...r, [parte]: { ...r[parte], [campo]: valor } }
+    })
   }
 
   function recalcularIVA() {
@@ -129,6 +136,34 @@ export function EscanerFacturas() {
     setResultado(r.data.resultado)
     setAplicaA(r.data.resultado.tipoDetectado === 'VENTA' ? 'VENTA' : 'COMPRA')
     toast.success(`Factura analizada (${r.data.resultado.confianza}% confianza)`)
+  }
+
+  function registrarManualmente() {
+    setImagen(null)
+    setResultado({
+      tipoDetectado: 'COMPRA',
+      emisor: { nombre: '', rif: '', rifValido: true },
+      receptor: { nombre: '', rif: '', rifValido: true },
+      numeroFactura: '',
+      numeroControl: '',
+      ncf: '',
+      fechaEmision: new Date().toISOString().slice(0, 10),
+      monedaOriginal: 'VES',
+      baseImponible: 0,
+      montoExento: 0,
+      montoExonerado: 0,
+      alicuotaIVA: 16,
+      montoIVA: 0,
+      total: 0,
+      descripcion: '',
+      items: [],
+      confianza: 100,
+      advertencias: [],
+      retencionISLRMonto: null,
+      retencionISLRPorcentaje: null,
+      retencionISLRBase: null,
+    })
+    setAplicaA('COMPRA')
   }
 
   function reset() {
@@ -215,8 +250,8 @@ export function EscanerFacturas() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Escáner de Facturas</h2>
-          <p className="text-sm text-slate-500">Sube una foto de la factura, revisa los datos extraídos y contabilízala</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Escáner de Facturas</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Sube una foto de la factura, revisa los datos extraídos y contabilízala</p>
         </div>
         {(resultado || imagen) && <Button variant="outline" onClick={reset}>Limpiar</Button>}
       </div>
@@ -224,16 +259,30 @@ export function EscanerFacturas() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardContent className="pt-6">
-            {!imagen ? (
-              <label htmlFor="file-upload" className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer block">
-                <Upload className="mx-auto mb-3" />
-                <p>Haz clic para subir factura</p>
-                <input id="file-upload" ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
-              </label>
+            {!imagen && !resultado ? (
+              <div className="space-y-3">
+                <label htmlFor="file-upload" className="border-2 border-dashed rounded-lg p-12 text-center cursor-pointer block">
+                  <Upload className="mx-auto mb-3" />
+                  <p>Haz clic para subir factura</p>
+                  <input id="file-upload" ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
+                </label>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                  o
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                </div>
+                <Button variant="outline" className="w-full" onClick={registrarManualmente}>
+                  <FileEdit className="w-4 h-4 mr-2" /> Registrar factura manualmente
+                </Button>
+              </div>
+            ) : !imagen && resultado ? (
+              <div className="p-12 text-center text-sm text-slate-400 dark:text-slate-500 border-2 border-dashed rounded-lg">
+                Registrando factura sin imagen. Completa los datos a la derecha.
+              </div>
             ) : (
               <div className="space-y-3">
-                <img src={imagen} alt="Factura" className="w-full max-h-[400px] object-contain" />
-                {analyzing && <p className="text-sm text-slate-500 text-center">Analizando con IA...</p>}
+                <img src={imagen ?? ''} alt="Factura" className="w-full max-h-[400px] object-contain" />
+                {analyzing && <p className="text-sm text-slate-500 dark:text-slate-400 text-center">Analizando con IA...</p>}
                 <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={analyzing}>Cambiar imagen</Button>
               </div>
             )}
@@ -243,7 +292,7 @@ export function EscanerFacturas() {
         <Card>
           <CardContent className="pt-6">
             {!resultado && !analyzing && (
-              <p className="text-sm text-slate-400 text-center py-16">Los datos extraídos aparecerán aquí</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 text-center py-16">Los datos extraídos aparecerán aquí</p>
             )}
             {resultado && (
               <ScrollArea className="h-[520px] pr-3">
@@ -377,7 +426,7 @@ export function EscanerFacturas() {
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {resultado.monedaOriginal === 'USD' ? formatUSD(resultado.total) : formatBs(resultado.total)}
                   </p>
 
@@ -388,7 +437,7 @@ export function EscanerFacturas() {
 
                   {facturaGuardadaId && (
                     <div className="space-y-3 border-t pt-4">
-                      <p className="text-sm font-medium text-slate-700">Opciones para generar el asiento contable</p>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Opciones para generar el asiento contable</p>
                       {esCompraOGasto && (
                         <div className="flex items-center justify-between">
                           <Label htmlFor="esInventario">Es compra de inventario/mercancía</Label>

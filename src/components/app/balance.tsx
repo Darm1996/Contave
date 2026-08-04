@@ -53,8 +53,8 @@ export function Balance() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Balance de Comprobación</h2>
-          <p className="text-sm text-slate-500">{balance.length} cuenta(s) con saldo</p>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Balance de Comprobación</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{balance.length} cuenta(s) con saldo</p>
         </div>
         <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
       </div>
@@ -63,7 +63,7 @@ export function Balance() {
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
             <div>
-              <label className="text-xs text-slate-500">Corte al</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400">Corte al</label>
               <Input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
             </div>
             <Button onClick={cargar}>Filtrar</Button>
@@ -78,31 +78,31 @@ export function Balance() {
         <CardContent className="p-0">
           <ScrollArea className="h-[600px]">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-slate-100 z-10">
+              <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                 <tr className="text-left">
-                  <th className="px-3 py-2 font-semibold text-slate-700">Código</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700">Cuenta</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700 text-right">Saldo Deudor</th>
-                  <th className="px-3 py-2 font-semibold text-slate-700 text-right">Saldo Acreedor</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Código</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Cuenta</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300 text-right">Saldo Deudor</th>
+                  <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300 text-right">Saldo Acreedor</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={4} className="text-center py-8 text-slate-400">Cargando...</td></tr>
+                  <tr><td colSpan={4} className="text-center py-8 text-slate-400 dark:text-slate-500">Cargando...</td></tr>
                 ) : balance.length === 0 ? (
-                  <tr><td colSpan={4} className="text-center py-8 text-slate-400">No hay cuentas con saldo</td></tr>
+                  <tr><td colSpan={4} className="text-center py-8 text-slate-400 dark:text-slate-500">No hay cuentas con saldo</td></tr>
                 ) : (
                   ordenTipos.filter((t) => porTipo[t]).map((tipo) => (
                     <>
                       <tr key={`h-${tipo}`} className="bg-slate-200">
-                        <td colSpan={4} className="px-3 py-2 font-bold text-slate-800 uppercase text-xs tracking-wider">
+                        <td colSpan={4} className="px-3 py-2 font-bold text-slate-800 dark:text-slate-100 uppercase text-xs tracking-wider">
                           {tipo}
                         </td>
                       </tr>
                       {porTipo[tipo].map((b) => (
-                        <tr key={b.codigoCuenta} className="border-t hover:bg-slate-50">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-500">{b.codigoCuenta}</td>
-                          <td className="px-3 py-2 text-slate-800">{b.nombreCuenta}</td>
+                        <tr key={b.codigoCuenta} className="border-t hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                          <td className="px-3 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">{b.codigoCuenta}</td>
+                          <td className="px-3 py-2 text-slate-800 dark:text-slate-100">{b.nombreCuenta}</td>
                           <td className="px-3 py-2 text-right font-mono text-emerald-700">
                             {b.saldoDeudor > 0 ? formatBs(b.saldoDeudor) : ''}
                           </td>

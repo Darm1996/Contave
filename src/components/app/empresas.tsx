@@ -67,15 +67,26 @@ export function Empresas() {
       toast.error('Nombre y RIF son requeridos')
       return
     }
-    const r = await apiFetch('/api/empresas', {
+    const r = await apiFetch<{ empresa: Empresa }>('/api/empresas', {
       method: 'POST',
       body: JSON.stringify(form),
     })
-    if (r.ok) {
+    if (r.ok && r.data) {
       toast.success('Empresa creada con plan de cuentas VEN-NIF clonado')
       setShowForm(false)
       setForm({ nombre: '', rif: '', direccion: '', telefono: '', email: '', esAgenteRetencionIVA: true, esContribuyenteEspecial: false, alicuotaIVA: 16, monedaFuncional: 'VES' })
-      cargar()
+      await cargar()
+      // Si no había ninguna empresa activa (ej. primera empresa del usuario),
+      // activar automáticamente la que se acaba de crear. Sin esto, el resto
+      // de la app queda rota con "Sin empresa activa" hasta que el usuario
+      // la active manualmente, algo nada obvio recién creada la cuenta.
+      if (!empresaActiva) {
+        const act = await apiFetch('/api/empresa-activa', {
+          method: 'POST',
+          body: JSON.stringify({ empresaId: r.data.empresa.id }),
+        })
+        if (act.ok) setEmpresaActiva(r.data.empresa)
+      }
     } else {
       toast.error(r.error || 'Error')
     }
@@ -96,15 +107,15 @@ export function Empresas() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             Empresas
             {esSuperAdmin && (
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 dark:border-amber-700">
                 <Crown className="w-3 h-3 mr-1" /> Super Admin
               </Badge>
             )}
           </h2>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             {esSuperAdmin
               ? 'Sin límite de empresas (Super Admin)'
               : `${empresas.length} de ${MAX_EMPRESAS} empresas utilizadas (${empresasRestantes} restantes)`}
@@ -119,7 +130,7 @@ export function Empresas() {
 
       {/* Aviso de límite */}
       {!esSuperAdmin && !puedeCrearMas && (
-        <Alert className="border-amber-300 bg-amber-50">
+        <Alert className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
           <AlertCircle className="w-4 h-4 text-amber-600" />
           <AlertDescription className="text-amber-800">
             <strong>Límite alcanzado:</strong> Has llegado al máximo de {MAX_EMPRESAS} empresas.
@@ -130,7 +141,7 @@ export function Empresas() {
 
       {/* Barra de progreso visual */}
       {!esSuperAdmin && (
-        <div className="bg-slate-100 rounded-full h-2 overflow-hidden">
+        <div className="bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
           <div
             className={`h-full transition-all ${empresas.length >= MAX_EMPRESAS ? 'bg-amber-500' : 'bg-emerald-500'}`}
             style={{ width: `${(empresas.length / MAX_EMPRESAS) * 100}%` }}
@@ -196,7 +207,7 @@ export function Empresas() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {empresas.map((e) => (
-          <Card key={e.id} className={empresaActiva?.id === e.id ? 'border-emerald-400 bg-emerald-50/30' : ''}>
+          <Card key={e.id} className={empresaActiva?.id === e.id ? 'border-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/20' : ''}>
             <CardContent className="pt-5">
               <div className="flex items-start justify-between mb-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center">
@@ -204,7 +215,7 @@ export function Empresas() {
                 </div>
                 <div className="flex gap-1">
                   {empresaActiva?.id === e.id && (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:border-emerald-800">
                       <Check className="w-3 h-3 mr-1" /> Activa
                     </Badge>
                   )}
@@ -212,7 +223,7 @@ export function Empresas() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-slate-400 hover:text-red-500"
+                      className="h-6 w-6 p-0 text-slate-400 dark:text-slate-500 hover:text-red-500"
                       onClick={() => desasociar(e.id, e.nombre)}
                       title="Desasociar empresa"
                     >
@@ -221,8 +232,8 @@ export function Empresas() {
                   )}
                 </div>
               </div>
-              <h3 className="font-semibold text-slate-800">{e.nombre}</h3>
-              <p className="text-xs text-slate-500 mb-2">RIF: {e.rif}</p>
+              <h3 className="font-semibold text-slate-800 dark:text-slate-100">{e.nombre}</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">RIF: {e.rif}</p>
               <div className="flex flex-wrap gap-1 mb-3">
                 {e.esAgenteRetencionIVA && <Badge variant="secondary" className="text-xs">Agente Retención IVA</Badge>}
                 {e.esContribuyenteEspecial && <Badge variant="secondary" className="text-xs">Contrib. Especial</Badge>}

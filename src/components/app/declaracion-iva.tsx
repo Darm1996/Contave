@@ -48,10 +48,10 @@ export function DeclaracionIVA() {
   useEffect(() => { cargar() }, [mes, ano])
 
   const resultadoColor = decl?.resultado === 'A_PAGAR'
-    ? 'bg-red-100 text-red-800 border-red-300'
+    ? 'bg-red-100 text-red-800 border-red-300 dark:border-red-700'
     : decl?.resultado === 'CREDITO_FAVOR'
-    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-    : 'bg-slate-100 text-slate-800 border-slate-300'
+    ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:border-emerald-700'
+    : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border-slate-300'
 
   const resultadoLabel = decl?.resultado === 'A_PAGAR'
     ? 'IMPUESTO A PAGAR'
@@ -63,11 +63,11 @@ export function DeclaracionIVA() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <FileBarChart className="w-6 h-6 text-emerald-600" />
             Declaración de IVA Mensual
           </h2>
-          <p className="text-sm text-slate-500">Forma 30 SENIAT - Providencia SNAT/2017/0018</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Forma 30 SENIAT - Providencia SNAT/2017/0018</p>
         </div>
         <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Recalcular</Button>
       </div>
@@ -76,7 +76,7 @@ export function DeclaracionIVA() {
       <Card>
         <CardContent className="pt-4 grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div>
-            <label className="text-xs text-slate-500">Mes</label>
+            <label className="text-xs text-slate-500 dark:text-slate-400">Mes</label>
             <select
               className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
               value={mes}
@@ -88,7 +88,7 @@ export function DeclaracionIVA() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-slate-500">Año</label>
+            <label className="text-xs text-slate-500 dark:text-slate-400">Año</label>
             <select
               className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
               value={ano}
@@ -101,9 +101,9 @@ export function DeclaracionIVA() {
       </Card>
 
       {loading ? (
-        <Card><CardContent className="text-center py-8 text-slate-400">Calculando declaración...</CardContent></Card>
+        <Card><CardContent className="text-center py-8 text-slate-400 dark:text-slate-500">Calculando declaración...</CardContent></Card>
       ) : !decl ? (
-        <Card><CardContent className="text-center py-8 text-slate-400">Sin datos</CardContent></Card>
+        <Card><CardContent className="text-center py-8 text-slate-400 dark:text-slate-500">Sin datos</CardContent></Card>
       ) : (
         <>
           {/* Resultado principal */}
@@ -168,10 +168,10 @@ export function DeclaracionIVA() {
           </div>
 
           {/* Determinación del impuesto */}
-          <Card className="bg-slate-50">
+          <Card className="bg-slate-50 dark:bg-slate-900">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Calculator className="w-4 h-4 text-slate-600" /> Determinación del Impuesto
+                <Calculator className="w-4 h-4 text-slate-600 dark:text-slate-400" /> Determinación del Impuesto
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -181,7 +181,7 @@ export function DeclaracionIVA() {
                 <Fila
                   label="IMPUESTO DETERMINADO"
                   valor={decl.impuestoDeterminado}
-                  className={`font-bold text-lg ${decl.impuestoDeterminado > 0 ? 'text-red-700' : decl.impuestoDeterminado < 0 ? 'text-emerald-700' : 'text-slate-700'}`}
+                  className={`font-bold text-lg ${decl.impuestoDeterminado > 0 ? 'text-red-700' : decl.impuestoDeterminado < 0 ? 'text-emerald-700' : 'text-slate-700 dark:text-slate-300'}`}
                 />
               </div>
             </CardContent>
@@ -207,7 +207,7 @@ export function DeclaracionIVA() {
 function Fila({ label, valor, className = '' }: { label: string; valor: number; className?: string }) {
   return (
     <div className={`flex justify-between ${className}`}>
-      <span className="text-slate-600">{label}</span>
+      <span className="text-slate-600 dark:text-slate-400">{label}</span>
       <span className="font-mono">{valor < 0 ? '(' : ''}{formatBs(Math.abs(valor))}{valor < 0 ? ')' : ''}</span>
     </div>
   )

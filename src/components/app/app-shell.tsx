@@ -1,5 +1,6 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 import { useApp, apiFetch } from '@/lib/store'
 import { Login } from './login'
 import { Dashboard } from './dashboard'
@@ -19,6 +20,7 @@ import { ISLRPanel } from './islr-panel'
 import { Empresas } from './empresas'
 import { TasaCambio } from './tasa-cambio'
 import { Exportar } from './exportar'
+import { Configuracion } from './configuracion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -26,7 +28,7 @@ import {
   LayoutDashboard, ScanLine, BookOpen, BookText, Scale,
   ListTree, Building2, DollarSign, Download, LogOut, BookOpenCheck,
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
-  Calendar, Landmark, FileSpreadsheet,
+  Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -46,6 +48,7 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'reporte-islr', label: 'Reporte Mensual ISLR', icon: FileSpreadsheet },
   { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
   { key: 'empresas', label: 'Empresas', icon: Building2 },
+  { key: 'configuracion', label: 'Configuración', icon: Settings },
   { key: 'tasa', label: 'Tasa de Cambio', icon: DollarSign },
   { key: 'exportar', label: 'Exportar', icon: Download },
 ]
@@ -54,6 +57,10 @@ export function AppShell() {
   const {
     user, empresaActiva, empresas, tab, setTab, setUser, setEmpresaActiva, setEmpresas, logout,
   } = useApp()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   // Verificar sesión al montar
   useEffect(() => {
@@ -74,10 +81,13 @@ export function AppShell() {
 
   if (!user) return <Login />
 
-  // Agrupar por sección
+  // Agrupar por sección: un item sin "section" propia hereda la del item
+  // anterior que sí la definió (así se arman los grupos del NAV de arriba).
   const sections: Record<string, typeof NAV> = {}
+  let seccionActual = ''
   NAV.forEach((item) => {
-    const s = item.section || (sections[''] ? '' : '')
+    if (item.section) seccionActual = item.section
+    const s = seccionActual
     if (!sections[s]) sections[s] = []
     sections[s].push(item)
   })
@@ -85,28 +95,28 @@ export function AppShell() {
   const initials = user.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || user.email.slice(0, 2).toUpperCase()
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 sticky top-0 h-screen">
+      <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 sticky top-0 h-screen">
         {/* Logo */}
-        <div className="p-4 border-b border-slate-200">
+        <div className="p-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow">
               <BookOpenCheck className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-bold text-slate-800 leading-tight">ContaVE</div>
-              <div className="text-xs text-slate-500 leading-tight">Contabilidad VE</div>
+              <div className="font-bold text-slate-800 dark:text-slate-100 leading-tight">ContaVE</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">Contabilidad VE</div>
             </div>
           </div>
         </div>
 
         {/* Empresa activa */}
         {empresaActiva && (
-          <div className="p-3 border-b border-slate-200 bg-slate-50">
-            <div className="text-xs text-slate-500 mb-1">Empresa activa</div>
-            <div className="text-sm font-semibold text-slate-800 truncate">{empresaActiva.nombre}</div>
-            <div className="text-xs text-slate-500">RIF: {empresaActiva.rif}</div>
+          <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
+            <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Empresa activa</div>
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{empresaActiva.nombre}</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">RIF: {empresaActiva.rif}</div>
           </div>
         )}
 
@@ -115,7 +125,7 @@ export function AppShell() {
           {Object.entries(sections).map(([section, items]) => (
             <div key={section || '_'}>
               {section && (
-                <div className="px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <div className="px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   {section}
                 </div>
               )}
@@ -129,8 +139,8 @@ export function AppShell() {
                       onClick={() => setTab(item.key)}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                         active
-                          ? 'bg-emerald-100 text-emerald-700 font-medium'
-                          : 'text-slate-600 hover:bg-slate-100'
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-medium'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
                       <Icon className="w-4 h-4 flex-shrink-0" />
@@ -144,24 +154,35 @@ export function AppShell() {
         </nav>
 
         {/* Usuario */}
-        <div className="p-3 border-t border-slate-200">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-2 mb-2">
             <Avatar className="w-8 h-8">
-              <AvatarFallback className={`text-xs ${user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              <AvatarFallback className={`text-xs ${user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'}`}>
                 {user.role === 'SUPER_ADMIN' ? '👑' : initials}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-slate-800 truncate">{user.name}</div>
-              <div className="text-xs text-slate-500 truncate">{user.email}</div>
+              <div className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{user.name}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</div>
             </div>
           </div>
           <div className="flex items-center gap-2 mb-2">
-            <Badge variant={user.role === 'SUPER_ADMIN' ? 'default' : 'outline'} className={`text-xs ${user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-800 border-amber-300' : ''}`}>
+            <Badge variant={user.role === 'SUPER_ADMIN' ? 'default' : 'outline'} className={`text-xs ${user.role === 'SUPER_ADMIN' ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700' : ''}`}>
               {user.role === 'SUPER_ADMIN' && <Crown className="w-3 h-3 mr-1" />}
               {user.role}
             </Badge>
-            <Button variant="ghost" size="sm" className="ml-auto text-slate-500" onClick={handleLogout}>
+            {mounted && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto text-slate-500 dark:text-slate-400"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              >
+                {theme === 'dark' ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="text-slate-500 dark:text-slate-400" onClick={handleLogout}>
               <LogOut className="w-3.5 h-3.5" />
             </Button>
           </div>
@@ -186,10 +207,11 @@ export function AppShell() {
           {tab === 'reporte-islr' && <ReporteISLR />}
           {tab === 'cuentas' && <PlanCuentas />}
           {tab === 'empresas' && <Empresas />}
+          {tab === 'configuracion' && <Configuracion />}
           {tab === 'tasa' && <TasaCambio />}
           {tab === 'exportar' && <Exportar />}
         </div>
-        <footer className="mt-auto py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
+        <footer className="mt-auto py-4 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           ContaVE · Contabilidad venezolana · IVA 16% + Retenciones IVA e ISLR + Libros SENIAT · Plan VEN-NIF Pymes · Hecho para el mercado venezolano
         </footer>
       </main>
