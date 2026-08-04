@@ -103,6 +103,16 @@ export async function POST(req: NextRequest) {
     const totalRetencion = (montoRetencionIVA ?? 0) + (montoRetencionISLR ?? 0)
     const totalAPagar = total - totalRetencion
 
+    // IGTF (3%): aplica si el pago fue en divisas/cripto (cualquier empresa), o si
+    // la empresa es contribuyente especial y el pago fue en efectivo. Solo se
+    // calcula sobre transacciones donde la empresa es quien paga (compra/gasto).
+    const pagoDivisaOCripto = Boolean(body.pagoDivisaOCripto)
+    const pagoEfectivo = Boolean(body.pagoEfectivo)
+    const aplicaIGTF = (body.tipo === 'COMPRA' || body.tipo === 'GASTO_MENOR')
+      && (pagoDivisaOCripto || (pagoEfectivo && empresa?.esContribuyenteEspecial))
+    const porcentajeIGTF = aplicaIGTF ? 3 : null
+    const montoIGTF = aplicaIGTF ? Math.round(total * 0.03 * 100) / 100 : null
+
     // Conversión a moneda funcional
     let tasaCambio: number | null = null
     let totalMonedaFuncional = total
@@ -139,6 +149,10 @@ export async function POST(req: NextRequest) {
         porcentajeRetencionISLR,
         baseRetencionISLR,
         montoRetencionISLR,
+        pagoDivisaOCripto,
+        pagoEfectivo,
+        porcentajeIGTF,
+        montoIGTF,
         subtotal,
         total,
         totalRetencion,

@@ -32,6 +32,21 @@ export async function GET() {
     const totalRetencionesISLR = facturasMes
       .filter((f) => f.montoRetencionISLR)
       .reduce((s, f) => s + (f.montoRetencionISLR || 0) * (f.totalMonedaFuncional / f.total), 0)
+    const totalIGTF = facturasMes
+      .filter((f) => f.montoIGTF)
+      .reduce((s, f) => s + (f.montoIGTF || 0) * (f.totalMonedaFuncional / f.total), 0)
+
+    // Módulos nuevos: activos fijos, nómina del mes, ajuste por inflación del mes
+    const activosFijos = await db.activoFijo.findMany({ where: { empresaId, estado: { not: 'DADO_DE_BAJA' } } })
+    const valorLibroActivosFijos = activosFijos.reduce((s, a) => s + (a.costoAdquisicion - a.depreciacionAcumulada), 0)
+
+    const nominaMes = await db.nomina.findUnique({
+      where: { empresaId_mes_ano: { empresaId, mes: ahora.getMonth() + 1, ano: ahora.getFullYear() } },
+    })
+
+    const ajusteInflacionMes = await db.ajusteInflacion.findUnique({
+      where: { empresaId_mes_ano: { empresaId, mes: ahora.getMonth() + 1, ano: ahora.getFullYear() } },
+    })
 
     // Tasa de cambio más reciente
     const tasaBCV = await db.tasaCambio.findFirst({
@@ -68,12 +83,16 @@ export async function GET() {
         ivaNetoPagar: totalIVADebito - totalIVACredito,
         totalRetencionesIVA,
         totalRetencionesISLR,
+        totalIGTF,
         cantidadFacturas: facturasMes.length,
       },
       tasaBCV: tasaBCV ? { tasa: tasaBCV.tasa, fecha: tasaBCV.fecha } : null,
       totalCuentas,
       ultimasFacturas,
       ultimosAsientos,
+      activosFijos: { cantidad: activosFijos.length, valorLibro: valorLibroActivosFijos },
+      nominaMes: nominaMes ? { totalNeto: nominaMes.totalNeto, estado: nominaMes.estado } : null,
+      ajusteInflacionMes: ajusteInflacionMes ? { resultadoExposicionInflacion: ajusteInflacionMes.resultadoExposicionInflacion } : null,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 401 })

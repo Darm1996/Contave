@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw } from 'lucide-react'
+import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw, Package, Users, FileWarning } from 'lucide-react'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 
 interface DashboardData {
@@ -17,12 +17,16 @@ interface DashboardData {
     ivaNetoPagar: number
     totalRetencionesIVA: number
     totalRetencionesISLR: number
+    totalIGTF: number
     cantidadFacturas: number
   }
   tasaBCV: { tasa: number; fecha: string } | null
   totalCuentas: number
   ultimasFacturas: any[]
   ultimosAsientos: any[]
+  activosFijos: { cantidad: number; valorLibro: number }
+  nominaMes: { totalNeto: number; estado: string } | null
+  ajusteInflacionMes: { resultadoExposicionInflacion: number } | null
 }
 
 export function Dashboard() {
@@ -152,6 +156,54 @@ export function Dashboard() {
             <Calculator className="w-8 h-8 text-cyan-600 mb-2" />
             <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">{mes.cantidadFacturas}</div>
             <p className="text-sm text-slate-500 dark:text-slate-400">Facturas procesadas este mes</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* KPIs de módulos nuevos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">IGTF pagado</CardTitle>
+            <FileWarning className="w-4 h-4 text-red-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalIGTF || 0)}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">3% pagos en divisas/cripto</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-cyan-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Activos fijos</CardTitle>
+            <Package className="w-4 h-4 text-cyan-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(data.activosFijos.valorLibro)}</div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.activosFijos.cantidad} activo(s), valor en libros</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Nómina del mes</CardTitle>
+            <Users className="w-4 h-4 text-emerald-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {data.nominaMes ? formatBs(data.nominaMes.totalNeto) : '—'}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.nominaMes ? 'Neto procesado' : 'Sin procesar este mes'}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-amber-500">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Ajuste por inflación</CardTitle>
+            <TrendingUp className="w-4 h-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${(data.ajusteInflacionMes?.resultadoExposicionInflacion || 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+              {data.ajusteInflacionMes ? formatBs(data.ajusteInflacionMes.resultadoExposicionInflacion) : '—'}
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.ajusteInflacionMes ? 'REI del mes' : 'Sin generar este mes'}</p>
           </CardContent>
         </Card>
       </div>

@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
         nivel: c.nivel,
         imputable: c.imputable ?? true,
         uso: c.uso || null,
+        esMonetaria: c.monetaria ?? true,
       })),
     })
     return NextResponse.json({ empresa })

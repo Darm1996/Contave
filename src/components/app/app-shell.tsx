@@ -21,6 +21,13 @@ import { Empresas } from './empresas'
 import { TasaCambio } from './tasa-cambio'
 import { Exportar } from './exportar'
 import { Configuracion } from './configuracion'
+import { ActivosFijos } from './activos-fijos'
+import { DeclaracionIGTF } from './declaracion-igtf'
+import { FacturarVenta } from './facturar-venta'
+import { Clientes } from './clientes'
+import { Empleados } from './empleados'
+import { Nomina } from './nomina'
+import { AjusteInflacion } from './ajuste-inflacion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -29,23 +36,31 @@ import {
   ListTree, Building2, DollarSign, Download, LogOut, BookOpenCheck,
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
+  Package, Users, TrendingUp, FilePlus, Contact,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Principal' },
   { key: 'escaner', label: 'Escanear Factura', icon: ScanLine, section: 'Operación' },
+  { key: 'facturar', label: 'Facturar Venta', icon: FilePlus },
+  { key: 'clientes', label: 'Clientes', icon: Contact },
   { key: 'diario', label: 'Libro Diario', icon: BookText, section: 'Contabilidad' },
   { key: 'mayor', label: 'Libro Mayor', icon: BookOpen },
   { key: 'balance', label: 'Balance Comprobación', icon: Scale },
   { key: 'conciliacion', label: 'Conciliación Bancaria', icon: Landmark },
   { key: 'declaracion-iva', label: 'Declaración IVA', icon: FileBarChart, section: 'Declaraciones' },
+  { key: 'declaracion-igtf', label: 'Declaración IGTF', icon: FileBarChart },
   { key: 'estados-financieros', label: 'Estados Financieros', icon: PieChart },
   { key: 'ejercicios', label: 'Ejercicios Fiscales', icon: Calendar, section: 'Cierre Anual' },
+  { key: 'ajuste-inflacion', label: 'Ajuste por Inflación', icon: TrendingUp },
   { key: 'libro-compras', label: 'Libro de Compras', icon: ShoppingCart, section: 'Libros SENIAT' },
   { key: 'libro-ventas', label: 'Libro de Ventas', icon: FileText },
   { key: 'islr', label: 'Retenciones ISLR', icon: Receipt, section: 'Reportes ISLR' },
   { key: 'reporte-islr', label: 'Reporte Mensual ISLR', icon: FileSpreadsheet },
+  { key: 'activos-fijos', label: 'Activos Fijos', icon: Package, section: 'Activos Fijos' },
+  { key: 'empleados', label: 'Empleados', icon: Users, section: 'Nómina' },
+  { key: 'nomina', label: 'Procesar Nómina', icon: FileSpreadsheet },
   { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
   { key: 'empresas', label: 'Empresas', icon: Building2 },
   { key: 'configuracion', label: 'Configuración', icon: Settings },
@@ -241,6 +256,13 @@ export function AppShell() {
           {tab === 'islr' && <ISLRPanel />}
           {tab === 'reporte-islr' && <ReporteISLR />}
           {tab === 'cuentas' && <PlanCuentas />}
+          {tab === 'activos-fijos' && <ActivosFijos />}
+          {tab === 'declaracion-igtf' && <DeclaracionIGTF />}
+          {tab === 'facturar' && <FacturarVenta />}
+          {tab === 'clientes' && <Clientes />}
+          {tab === 'empleados' && <Empleados />}
+          {tab === 'nomina' && <Nomina />}
+          {tab === 'ajuste-inflacion' && <AjusteInflacion />}
           {tab === 'empresas' && <Empresas />}
           {tab === 'configuracion' && <Configuracion />}
           {tab === 'tasa' && <TasaCambio />}

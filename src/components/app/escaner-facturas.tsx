@@ -70,6 +70,8 @@ export function EscanerFacturas() {
   const [contabilizando, setContabilizando] = useState(false)
   const [facturaGuardadaId, setFacturaGuardadaId] = useState<string | null>(null)
   const [esInventario, setEsInventario] = useState(false)
+  const [pagoDivisaOCripto, setPagoDivisaOCripto] = useState(false)
+  const [pagoEfectivo, setPagoEfectivo] = useState(false)
   const [usoGasto, setUsoGasto] = useState('GASTO_OTROS')
   const [clienteRetieneIVA, setClienteRetieneIVA] = useState(false)
   const [aplicaA, setAplicaA] = useState<'COMPRA' | 'VENTA'>('COMPRA')
@@ -236,6 +238,8 @@ export function EscanerFacturas() {
       tasaCambio: tasaManual ? parseFloat(tasaManual) : undefined,
       tarifaISLRCodigo: tarifaISLRSeleccionada || undefined,
       ncfAfectaVenta: esNota ? aplicaA === 'VENTA' : true,
+      pagoDivisaOCripto: esCompra ? pagoDivisaOCripto : false,
+      pagoEfectivo: esCompra ? pagoEfectivo : false,
     }
 
     const r = await apiFetch<{ factura: { id: string } }>('/api/facturas', {
@@ -524,6 +528,19 @@ export function EscanerFacturas() {
                         <div className="flex items-center justify-between">
                           <Label htmlFor="clienteRetieneIVA">El cliente retiene IVA</Label>
                           <Switch id="clienteRetieneIVA" checked={clienteRetieneIVA} onCheckedChange={setClienteRetieneIVA} />
+                        </div>
+                      )}
+                      {esCompraOGasto && (
+                        <div className="space-y-2 border-t pt-3">
+                          <p className="text-xs text-slate-500 dark:text-slate-400">IGTF (3%, no recuperable) — verifica con tu contador los casos que no cubre esta simplificación</p>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="pagoDivisaOCripto">Pago en divisas o criptomonedas</Label>
+                            <Switch id="pagoDivisaOCripto" checked={pagoDivisaOCripto} onCheckedChange={setPagoDivisaOCripto} disabled={!!facturaGuardadaId} />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="pagoEfectivo">Pago en efectivo</Label>
+                            <Switch id="pagoEfectivo" checked={pagoEfectivo} onCheckedChange={setPagoEfectivo} disabled={!!facturaGuardadaId} />
+                          </div>
                         </div>
                       )}
                     </div>
