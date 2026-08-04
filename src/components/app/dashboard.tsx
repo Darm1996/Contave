@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
-import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw } from 'lucide-react'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 
 interface DashboardData {
@@ -28,15 +29,18 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetch('/api/dashboard')
+  function cargar() {
+    setLoading(true)
+    fetch('/api/dashboard', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
         if (d.error) console.error(d.error)
         else setData(d)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { cargar() }, [])
 
   if (loading || !data) {
     return (
@@ -52,9 +56,12 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Dashboard — {mes.nombre}</h2>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Resumen contable del mes en curso</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Dashboard — {mes.nombre}</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Resumen contable del mes en curso</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
       </div>
 
       {/* KPIs principales */}
