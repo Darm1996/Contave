@@ -17,6 +17,7 @@ export type TabKey =
   | 'islr'
   | 'reporte-islr'
   | 'empresas'
+  | 'configuracion'
   | 'tasa'
   | 'exportar'
 
