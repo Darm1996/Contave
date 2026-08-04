@@ -9,8 +9,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { useApp, apiFetch } from '@/lib/store'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
-import { Landmark, RefreshCw, Plus, Upload, Check, X, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Landmark, RefreshCw, Plus, Upload, Check, X, Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react'
 
 interface Cuenta {
   id: string
@@ -168,6 +169,28 @@ export function Conciliacion() {
     setCargandoMov(false)
   }
 
+  function exportar() {
+    if (!seleccionada) return
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+    exportarExcelCliente(`Conciliacion_${seleccionada.cuenta?.codigo}_${meses[seleccionada.mes - 1]}_${seleccionada.ano}.xlsx`, [{
+      nombre: 'Conciliación Bancaria',
+      columnas: [
+        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'Descripción', key: 'descripcion', width: 32 },
+        { header: 'Referencia', key: 'referencia', width: 16 },
+        { header: 'Monto', key: 'monto', width: 16, numFmt: '#,##0.00' },
+        { header: 'Estado', key: 'estado', width: 14 },
+      ],
+      filas: (seleccionada.movimientos || []).map((m) => ({
+        fecha: new Date(m.fecha).toLocaleDateString('es-VE'),
+        descripcion: m.descripcion,
+        referencia: m.referencia || '',
+        monto: m.monto,
+        estado: m.conciliado ? 'Conciliado' : 'Pendiente',
+      })),
+    }])
+  }
+
   async function toggleMovimiento(movId: string) {
     const r = await apiFetch(`/api/conciliacion/${seleccionada!.id}/movimiento/${movId}/toggle`, {
       method: 'POST',
@@ -181,7 +204,7 @@ export function Conciliacion() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Landmark className="w-6 h-6 text-cyan-600" />
@@ -286,17 +309,20 @@ export function Conciliacion() {
       {seleccionada && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center justify-between">
+            <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
               <span>
                 Conciliación — {seleccionada.cuenta?.codigo} {seleccionada.cuenta?.nombre}
                 <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
                   {['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][seleccionada.mes - 1]} {seleccionada.ano}
                 </span>
               </span>
-              <Badge variant={seleccionada.estado === 'CUADRADO' ? 'default' : 'secondary'}
-                className={seleccionada.estado === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}>
-                {seleccionada.estado}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={seleccionada.estado === 'CUADRADO' ? 'default' : 'secondary'}
+                  className={seleccionada.estado === 'CUADRADO' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}>
+                  {seleccionada.estado}
+                </Badge>
+                <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -364,8 +390,9 @@ export function Conciliacion() {
               <Label className="text-sm font-semibold mb-2 block">
                 Movimientos del banco ({seleccionada.movimientos?.length || 0})
               </Label>
+              <div className="overflow-x-auto">
               <ScrollArea className="h-[400px] border rounded-md">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[500px] text-xs">
                   <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                     <tr className="text-left">
                       <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300">Fecha</th>
@@ -405,6 +432,7 @@ export function Conciliacion() {
                   </tbody>
                 </table>
               </ScrollArea>
+              </div>
             </div>
           </CardContent>
         </Card>

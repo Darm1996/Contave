@@ -6,8 +6,9 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { useApp, apiFetch } from '@/lib/store'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
-import { Calendar, Lock, Unlock, RefreshCw, Loader2, FileText, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react'
+import { Calendar, Lock, Unlock, RefreshCw, Loader2, FileText, TrendingUp, TrendingDown, AlertCircle, Download } from 'lucide-react'
 
 interface Ejercicio {
   id: string
@@ -84,6 +85,30 @@ export function Ejercicios() {
     setActionLoading(null)
   }
 
+  function exportar() {
+    exportarExcelCliente(`EjerciciosFiscales_${new Date().toISOString().slice(0, 10)}.xlsx`, [{
+      nombre: 'Ejercicios Fiscales',
+      columnas: [
+        { header: 'Año', key: 'ano', width: 10 },
+        { header: 'Estado', key: 'estado', width: 14 },
+        { header: 'Fecha inicio', key: 'fechaInicio', width: 14 },
+        { header: 'Fecha cierre', key: 'fechaCierre', width: 14 },
+        { header: 'Utilidad neta', key: 'utilidadNeta', width: 16, numFmt: '#,##0.00' },
+        { header: 'ISLR estimado', key: 'islrEstimado', width: 16, numFmt: '#,##0.00' },
+        { header: 'Cerrado el', key: 'cerradoEn', width: 14 },
+      ],
+      filas: ejercicios.map((e) => ({
+        ano: e.ano,
+        estado: e.estado,
+        fechaInicio: new Date(e.fechaInicio).toLocaleDateString('es-VE'),
+        fechaCierre: new Date(e.fechaCierre).toLocaleDateString('es-VE'),
+        utilidadNeta: e.utilidadNeta ?? '',
+        islrEstimado: e.islrEstimado ?? '',
+        cerradoEn: e.cerradoEn ? new Date(e.cerradoEn).toLocaleDateString('es-VE') : '',
+      })),
+    }])
+  }
+
   const anoActual = new Date().getFullYear()
   const ejerciciosFaltantes = [anoActual - 1, anoActual, anoActual + 1].filter(
     (a) => !ejercicios.find((e) => e.ano === a)
@@ -91,7 +116,7 @@ export function Ejercicios() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Calendar className="w-6 h-6 text-emerald-600" />
@@ -99,7 +124,10 @@ export function Ejercicios() {
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Gestiona cierres anuales y aperturas de nuevos ejercicios</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar} disabled={ejercicios.length === 0}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       {/* Alerta informativa */}

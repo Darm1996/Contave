@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { RefreshCw, ChevronDown, ChevronRight } from 'lucide-react'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { RefreshCw, ChevronDown, ChevronRight, Download } from 'lucide-react'
 
 interface Movimiento {
   fecha: string
@@ -48,6 +49,38 @@ export function LibroMayor() {
 
   useEffect(() => { cargar() }, [])
 
+  function exportar() {
+    exportarExcelCliente(`LibroMayor_${new Date().toISOString().slice(0, 10)}.xlsx`, [{
+      nombre: 'Libro Mayor',
+      columnas: [
+        { header: 'Código Cuenta', key: 'codigoCuenta', width: 14 },
+        { header: 'Cuenta', key: 'nombreCuenta', width: 30 },
+        { header: 'Fecha', key: 'fecha', width: 14 },
+        { header: 'N° Asiento', key: 'numeroAsiento', width: 12 },
+        { header: 'Descripción', key: 'descripcion', width: 30 },
+        { header: 'Débito', key: 'debit', width: 16, numFmt: '#,##0.00' },
+        { header: 'Crédito', key: 'credit', width: 16, numFmt: '#,##0.00' },
+        { header: 'Saldo', key: 'saldo', width: 16, numFmt: '#,##0.00' },
+      ],
+      filas: cuentas.flatMap((c) => [
+        ...(c.saldoInicial !== 0 ? [{
+          codigoCuenta: c.codigoCuenta, nombreCuenta: c.nombreCuenta, fecha: '', numeroAsiento: '',
+          descripcion: 'Saldo inicial', debit: '', credit: '', saldo: c.saldoInicial,
+        }] : []),
+        ...c.movimientos.map((m) => ({
+          codigoCuenta: c.codigoCuenta,
+          nombreCuenta: c.nombreCuenta,
+          fecha: new Date(m.fecha).toLocaleDateString('es-VE'),
+          numeroAsiento: m.numeroAsiento,
+          descripcion: m.descripcion,
+          debit: m.debit,
+          credit: m.credit,
+          saldo: m.saldo,
+        })),
+      ]),
+    }])
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -55,7 +88,10 @@ export function LibroMayor() {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Libro Mayor</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Mayorización por cuenta contable · {cuentas.length} cuenta(s) con movimiento</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       <Card>
@@ -90,7 +126,7 @@ export function LibroMayor() {
                   className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 py-3"
                   onClick={() => setExpandidas({ ...expandidas, [c.codigoCuenta]: !expandida })}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-3">
                       {expandida ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       <div>
@@ -115,9 +151,9 @@ export function LibroMayor() {
                 </CardHeader>
                 {expandida && (
                   <CardContent className="pt-0">
-                    <div className="border-t">
+                    <div className="border-t overflow-x-auto">
                       <ScrollArea className="h-auto max-h-80">
-                        <table className="w-full text-sm">
+                        <table className="w-full min-w-[600px] text-sm">
                           <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                             <tr className="text-left">
                               <th className="px-3 py-2 font-medium text-slate-600 dark:text-slate-400">Fecha</th>

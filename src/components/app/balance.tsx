@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { RefreshCw } from 'lucide-react'
+import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { RefreshCw, Download } from 'lucide-react'
 
 interface FilaBalance {
   codigoCuenta: string
@@ -49,6 +50,28 @@ export function Balance() {
 
   const ordenTipos = ['ACTIVO', 'PASIVO', 'PATRIMONIO', 'INGRESO', 'COSTO', 'GASTO']
 
+  function exportar() {
+    exportarExcelCliente(`BalanceComprobacion_${new Date().toISOString().slice(0, 10)}.xlsx`, [{
+      nombre: 'Balance de Comprobación',
+      columnas: [
+        { header: 'Tipo', key: 'tipoCuenta', width: 14 },
+        { header: 'Código', key: 'codigoCuenta', width: 14 },
+        { header: 'Cuenta', key: 'nombreCuenta', width: 30 },
+        { header: 'Saldo Deudor', key: 'saldoDeudor', width: 16, numFmt: '#,##0.00' },
+        { header: 'Saldo Acreedor', key: 'saldoAcreedor', width: 16, numFmt: '#,##0.00' },
+      ],
+      filas: ordenTipos.filter((t) => porTipo[t]).flatMap((tipo) =>
+        porTipo[tipo].map((b) => ({
+          tipoCuenta: tipo,
+          codigoCuenta: b.codigoCuenta,
+          nombreCuenta: b.nombreCuenta,
+          saldoDeudor: b.saldoDeudor,
+          saldoAcreedor: b.saldoAcreedor,
+        })),
+      ),
+    }])
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -56,7 +79,10 @@ export function Balance() {
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Balance de Comprobación</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">{balance.length} cuenta(s) con saldo</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+        </div>
       </div>
 
       <Card>
@@ -75,9 +101,9 @@ export function Balance() {
         <CardHeader>
           <CardTitle className="text-base">Saldos por cuenta</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <ScrollArea className="h-[600px]">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[500px] text-sm">
               <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Código</th>
