@@ -105,7 +105,7 @@ export function LibroVentas() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Libro de Ventas</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -171,9 +171,9 @@ export function LibroVentas() {
       </Card>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <ScrollArea className="h-[600px]">
-            <table className="w-full text-xs">
+            <table className="w-full min-w-[850px] text-xs">
               <thead className="sticky top-0 bg-slate-800 text-white z-10">
                 <tr>
                   <th className="px-2 py-2 text-left">Fecha</th>

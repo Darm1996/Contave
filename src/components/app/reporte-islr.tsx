@@ -174,9 +174,9 @@ export function ReporteISLR() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Resumen por tipo de retención</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 overflow-x-auto">
                 <ScrollArea className="h-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[600px] text-sm">
                     <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                       <tr className="text-left">
                         <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Código</th>
@@ -218,9 +218,9 @@ export function ReporteISLR() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Detalle de retenciones — {reporte.mesNombre} {reporte.ano}</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <ScrollArea className="h-[500px]">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[700px] text-xs">
                   <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                     <tr className="text-left">
                       <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300">Fecha</th>

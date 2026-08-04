@@ -140,7 +140,7 @@ export function DeclaracionIVA() {
           {/* Resultado principal */}
           <Card className={`border-2 ${resultadoColor}`}>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <div className="text-sm opacity-80">Período: {decl.mesNombre} {decl.ano}</div>
                   <div className="text-3xl font-bold mt-1">

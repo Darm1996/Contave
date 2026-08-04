@@ -161,13 +161,13 @@ export function ISLRPanel() {
 
       {/* Tabla completa de tarifas */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
           <CardTitle className="text-base">Tabla de tarifas ISLR — SENIAT</CardTitle>
           <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <ScrollArea className="h-[500px]">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">Cod.</th>

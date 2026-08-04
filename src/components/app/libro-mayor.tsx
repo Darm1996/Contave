@@ -126,7 +126,7 @@ export function LibroMayor() {
                   className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 py-3"
                   onClick={() => setExpandidas({ ...expandidas, [c.codigoCuenta]: !expandida })}
                 >
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-3">
                       {expandida ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       <div>
@@ -151,9 +151,9 @@ export function LibroMayor() {
                 </CardHeader>
                 {expandida && (
                   <CardContent className="pt-0">
-                    <div className="border-t">
+                    <div className="border-t overflow-x-auto">
                       <ScrollArea className="h-auto max-h-80">
-                        <table className="w-full text-sm">
+                        <table className="w-full min-w-[600px] text-sm">
                           <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                             <tr className="text-left">
                               <th className="px-3 py-2 font-medium text-slate-600 dark:text-slate-400">Fecha</th>

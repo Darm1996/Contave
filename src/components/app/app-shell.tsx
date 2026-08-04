@@ -28,7 +28,7 @@ import {
   LayoutDashboard, ScanLine, BookOpen, BookText, Scale,
   ListTree, Building2, DollarSign, Download, LogOut, BookOpenCheck,
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
-  Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon,
+  Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -59,6 +59,7 @@ export function AppShell() {
   } = useApp()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
 
@@ -96,18 +97,52 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
+      {/* Barra superior móvil/tablet */}
+      <header className="lg:hidden fixed top-0 inset-x-0 z-30 flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
+        <Button variant="ghost" size="sm" className="p-2" onClick={() => setSidebarOpen(true)} aria-label="Abrir menú">
+          <Menu className="w-5 h-5" />
+        </Button>
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow flex-shrink-0">
+          <BookOpenCheck className="w-4 h-4 text-white" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-bold text-slate-800 dark:text-slate-100 leading-tight text-sm truncate">
+            {empresaActiva ? empresaActiva.nombre : 'ContaVE'}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">Contabilidad VE</div>
+        </div>
+      </header>
+
+      {/* Backdrop del drawer en móvil/tablet */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 sticky top-0 h-screen">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 flex flex-col flex-shrink-0 h-screen transform transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static lg:sticky lg:top-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         {/* Logo */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow">
-              <BookOpenCheck className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow">
+                <BookOpenCheck className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="font-bold text-slate-800 dark:text-slate-100 leading-tight">ContaVE</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">Contabilidad VE</div>
+              </div>
             </div>
-            <div>
-              <div className="font-bold text-slate-800 dark:text-slate-100 leading-tight">ContaVE</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 leading-tight">Contabilidad VE</div>
-            </div>
+            <Button variant="ghost" size="sm" className="p-2 lg:hidden" onClick={() => setSidebarOpen(false)} aria-label="Cerrar menú">
+              <X className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 
@@ -136,7 +171,7 @@ export function AppShell() {
                   return (
                     <button
                       key={item.key}
-                      onClick={() => setTab(item.key)}
+                      onClick={() => { setTab(item.key); setSidebarOpen(false) }}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
                         active
                           ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-medium'
@@ -190,8 +225,8 @@ export function AppShell() {
       </aside>
 
       {/* Contenido principal */}
-      <main className="flex-1 overflow-x-hidden">
-        <div className="p-6 max-w-7xl mx-auto">
+      <main className="flex-1 overflow-x-hidden min-w-0 pt-14 lg:pt-0">
+        <div className="p-3 sm:p-4 lg:p-6 max-w-7xl mx-auto">
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}

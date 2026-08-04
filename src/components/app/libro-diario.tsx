@@ -125,9 +125,9 @@ export function LibroDiario() {
       </Card>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto">
           <ScrollArea className="h-[600px]">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 z-10">
                 <tr className="text-left">
                   <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">N°</th>

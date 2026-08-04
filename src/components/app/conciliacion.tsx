@@ -204,7 +204,7 @@ export function Conciliacion() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
             <Landmark className="w-6 h-6 text-cyan-600" />
@@ -309,7 +309,7 @@ export function Conciliacion() {
       {seleccionada && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center justify-between">
+            <CardTitle className="text-base flex items-center justify-between flex-wrap gap-2">
               <span>
                 Conciliación — {seleccionada.cuenta?.codigo} {seleccionada.cuenta?.nombre}
                 <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
@@ -390,8 +390,9 @@ export function Conciliacion() {
               <Label className="text-sm font-semibold mb-2 block">
                 Movimientos del banco ({seleccionada.movimientos?.length || 0})
               </Label>
+              <div className="overflow-x-auto">
               <ScrollArea className="h-[400px] border rounded-md">
-                <table className="w-full text-xs">
+                <table className="w-full min-w-[500px] text-xs">
                   <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                     <tr className="text-left">
                       <th className="px-2 py-2 font-semibold text-slate-700 dark:text-slate-300">Fecha</th>
@@ -431,6 +432,7 @@ export function Conciliacion() {
                   </tbody>
                 </table>
               </ScrollArea>
+              </div>
             </div>
           </CardContent>
         </Card>
