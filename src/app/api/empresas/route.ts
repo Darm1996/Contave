@@ -138,6 +138,13 @@ export async function PATCH(req: NextRequest) {
       data.alicuotaIVA = alicuota
     }
     if (body.monedaFuncional != null) data.monedaFuncional = body.monedaFuncional
+    if (body.diaVencimientoIVA != null) {
+      const dia = Number(body.diaVencimientoIVA)
+      if (!Number.isInteger(dia) || dia < 1 || dia > 28) {
+        return NextResponse.json({ error: 'El día de vencimiento debe ser un número entre 1 y 28' }, { status: 400 })
+      }
+      data.diaVencimientoIVA = dia
+    }
 
     const empresa = await db.empresa.update({ where: { id: empresaId }, data })
     return NextResponse.json({ empresa })

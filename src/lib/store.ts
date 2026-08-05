@@ -27,6 +27,7 @@ export type TabKey =
   | 'empleados'
   | 'nomina'
   | 'activos-fijos'
+  | 'vencimientos-fiscales'
 
 interface UserState {
   id: string

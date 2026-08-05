@@ -28,6 +28,7 @@ import { Clientes } from './clientes'
 import { Empleados } from './empleados'
 import { Nomina } from './nomina'
 import { AjusteInflacion } from './ajuste-inflacion'
+import { VencimientosFiscales } from './vencimientos-fiscales'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -36,12 +37,13 @@ import {
   ListTree, Building2, DollarSign, Download, LogOut, BookOpenCheck,
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
-  Package, Users, TrendingUp, FilePlus, Contact,
+  Package, Users, TrendingUp, FilePlus, Contact, CalendarClock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Principal' },
+  { key: 'vencimientos-fiscales', label: 'Calendario Fiscal', icon: CalendarClock },
   { key: 'escaner', label: 'Escanear Factura', icon: ScanLine, section: 'Operación' },
   { key: 'facturar', label: 'Facturar Venta', icon: FilePlus },
   { key: 'clientes', label: 'Clientes', icon: Contact },
@@ -243,6 +245,7 @@ export function AppShell() {
       <main className="flex-1 overflow-x-hidden min-w-0 pt-14 lg:pt-0">
         <div className="p-3 sm:p-4 lg:p-6 max-w-7xl mx-auto">
           {tab === 'dashboard' && <Dashboard />}
+          {tab === 'vencimientos-fiscales' && <VencimientosFiscales />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}
           {tab === 'mayor' && <LibroMayor />}

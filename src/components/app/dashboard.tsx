@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw, Package, Users, FileWarning } from 'lucide-react'
+import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw, Package, Users, FileWarning, CalendarClock } from 'lucide-react'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
+import { useApp, apiFetch } from '@/lib/store'
+import { ComprasVentasChart } from './dashboard-chart'
 
 interface DashboardData {
   mes: {
@@ -29,9 +31,19 @@ interface DashboardData {
   ajusteInflacionMes: { resultadoExposicionInflacion: number } | null
 }
 
+interface Vencimiento {
+  descripcion: string
+  fecha: string
+  diasRestantes: number
+  urgente: boolean
+  vencido: boolean
+}
+
 export function Dashboard() {
+  const { setTab } = useApp()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [proximoVencimiento, setProximoVencimiento] = useState<Vencimiento | null>(null)
 
   function cargar() {
     setLoading(true)
@@ -42,6 +54,9 @@ export function Dashboard() {
         else setData(d)
       })
       .finally(() => setLoading(false))
+    apiFetch<{ vencimientos: Vencimiento[] }>('/api/vencimientos-fiscales').then((r) => {
+      if (r.ok && r.data && r.data.vencimientos.length > 0) setProximoVencimiento(r.data.vencimientos[0])
+    })
   }
 
   useEffect(() => { cargar() }, [])
@@ -67,6 +82,26 @@ export function Dashboard() {
         </div>
         <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
       </div>
+
+      {proximoVencimiento && (
+        <Card
+          className={`cursor-pointer hover:shadow-md transition-shadow ${proximoVencimiento.urgente ? 'border-l-4 border-l-red-500' : 'border-l-4 border-l-cyan-500'}`}
+          onClick={() => setTab('vencimientos-fiscales')}
+        >
+          <CardContent className="pt-4 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <CalendarClock className={`w-5 h-5 flex-shrink-0 ${proximoVencimiento.urgente ? 'text-red-600' : 'text-cyan-600'}`} />
+              <div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide">Próximo vencimiento fiscal</div>
+                <div className="font-medium text-slate-800 dark:text-slate-100">{proximoVencimiento.descripcion}</div>
+              </div>
+            </div>
+            <Badge className={proximoVencimiento.urgente ? 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/40 dark:text-red-300' : 'bg-cyan-100 text-cyan-800 border-cyan-300 dark:bg-cyan-900/40 dark:text-cyan-300'}>
+              {proximoVencimiento.diasRestantes === 0 ? 'Hoy' : `En ${proximoVencimiento.diasRestantes} día(s)`}
+            </Badge>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPIs principales */}
       <div>
@@ -216,6 +251,8 @@ export function Dashboard() {
           </Card>
         </div>
       </div>
+
+      <ComprasVentasChart />
 
       {/* Listas recientes */}
       <div>
