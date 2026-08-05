@@ -11,6 +11,7 @@ import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { useApp, apiFetch } from '@/lib/store'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { Landmark, RefreshCw, Plus, Upload, Check, X, Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react'
 
 interface Cuenta {
@@ -390,6 +391,7 @@ export function Conciliacion() {
               <Label className="text-sm font-semibold mb-2 block">
                 Movimientos del banco ({seleccionada.movimientos?.length || 0})
               </Label>
+              <TableScrollHint />
               <div className="overflow-x-auto">
               <ScrollArea className="h-[400px] border rounded-md">
                 <table className="w-full min-w-[500px] text-xs">

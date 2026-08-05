@@ -9,6 +9,7 @@ import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { apiFetch } from '@/lib/store'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { Package, RefreshCw, Plus, Loader2, Download, Trash2 } from 'lucide-react'
 
 interface Cuenta { id: string; codigo: string; nombre: string; uso: string | null }
@@ -224,6 +225,7 @@ export function ActivosFijos() {
       <Card>
         <CardHeader><CardTitle className="text-base">Activos registrados ({activos.length})</CardTitle></CardHeader>
         <CardContent>
+          <TableScrollHint />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[700px] text-xs">
               <thead className="bg-slate-100 dark:bg-slate-800">

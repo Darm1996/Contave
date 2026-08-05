@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { apiFetch } from '@/lib/store'
 import { toast } from 'sonner'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { Users, Plus, RefreshCw, Loader2, Trash2 } from 'lucide-react'
 
 interface Empleado { id: string; cedula: string; nombre: string; cargo: string | null; fechaIngreso: string; salarioBase: number; activo: boolean }
@@ -85,6 +86,7 @@ export function Empleados() {
       )}
 
       <Card>
+        <TableScrollHint />
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full min-w-[650px] text-xs">
             <thead className="bg-slate-100 dark:bg-slate-800">

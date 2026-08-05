@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { FileText, RefreshCw, Download } from 'lucide-react'
 
 interface Fila {
@@ -174,6 +175,7 @@ export function ReporteISLR() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Resumen por tipo de retención</CardTitle>
               </CardHeader>
+              <TableScrollHint />
               <CardContent className="p-0 overflow-x-auto">
                 <ScrollArea className="h-auto">
                   <table className="w-full min-w-[600px] text-sm">
@@ -218,6 +220,7 @@ export function ReporteISLR() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Detalle de retenciones — {reporte.mesNombre} {reporte.ano}</CardTitle>
             </CardHeader>
+            <TableScrollHint />
             <CardContent className="p-0 overflow-x-auto">
               <ScrollArea className="h-[500px]">
                 <table className="w-full min-w-[700px] text-xs">

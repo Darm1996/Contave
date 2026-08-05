@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { FileBarChart, RefreshCw, Download } from 'lucide-react'
 
 interface Fila {
@@ -137,6 +138,7 @@ export function DeclaracionIGTF() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Detalle — {reporte.mesNombre} {reporte.ano}</CardTitle>
             </CardHeader>
+            <TableScrollHint />
             <CardContent className="p-0 overflow-x-auto">
               <ScrollArea className="h-[500px]">
                 <table className="w-full min-w-[700px] text-xs">

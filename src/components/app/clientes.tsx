@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { apiFetch } from '@/lib/store'
 import { toast } from 'sonner'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { Contact, Plus, RefreshCw, Loader2 } from 'lucide-react'
 
 interface Cliente { id: string; rif: string; nombre: string; direccion: string | null; telefono: string | null; email: string | null }
@@ -74,6 +75,7 @@ export function Clientes() {
       )}
 
       <Card>
+        <TableScrollHint />
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full min-w-[500px] text-xs">
             <thead className="bg-slate-100 dark:bg-slate-800">

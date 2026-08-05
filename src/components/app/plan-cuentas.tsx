@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { apiFetch } from '@/lib/store'
 import { toast } from 'sonner'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { Search, Plus, Pencil, Loader2 } from 'lucide-react'
 
 interface Cuenta {
@@ -125,6 +126,7 @@ export function PlanCuentas() {
       </Card>
 
       <Card>
+        <TableScrollHint />
         <CardContent className="p-0 overflow-x-auto">
           <ScrollArea className="h-[600px]">
             <table className="w-full min-w-[700px] text-sm">
