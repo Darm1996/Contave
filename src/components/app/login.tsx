@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useApp, apiFetch } from '@/lib/store'
 import { toast } from 'sonner'
-import { BookOpen, Loader2 } from 'lucide-react'
+import { BookOpenCheck, Loader2 } from 'lucide-react'
 
 export function Login() {
   const { setUser, setEmpresaActiva, setEmpresas } = useApp()
@@ -65,7 +65,7 @@ export function Login() {
         <CardHeader className="space-y-2 text-center">
           <div className="flex justify-center">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg">
-              <BookOpen className="w-7 h-7 text-white" />
+              <BookOpenCheck className="w-7 h-7 text-white" />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-slate-800 dark:text-slate-100">ContaVE</CardTitle>

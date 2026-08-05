@@ -21,6 +21,7 @@ interface EmpresaCompleta {
   esContribuyenteEspecial: boolean
   alicuotaIVA: number
   monedaFuncional: string
+  diaVencimientoIVA: number
 }
 
 export function Configuracion() {
@@ -68,6 +69,7 @@ export function Configuracion() {
         esContribuyenteEspecial: empresa.esContribuyenteEspecial,
         alicuotaIVA: empresa.alicuotaIVA,
         monedaFuncional: empresa.monedaFuncional,
+        diaVencimientoIVA: empresa.diaVencimientoIVA,
       }),
     })
     setSaving(false)
@@ -150,6 +152,23 @@ export function Configuracion() {
                 <SelectItem value="USD">USD (Dólares)</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Calendario fiscal</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Día de vencimiento de IVA (mes siguiente)</Label>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
+              El SENIAT publica un calendario anual con un día distinto según el último dígito del RIF (y otro calendario si sos contribuyente especial). Poné acá el día que te corresponde según ese calendario oficial.
+            </p>
+            <Input
+              type="number" min="1" max="28"
+              value={empresa.diaVencimientoIVA}
+              onChange={(e) => actualizar('diaVencimientoIVA', parseInt(e.target.value) || 15)}
+            />
           </div>
         </CardContent>
       </Card>

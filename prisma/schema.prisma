@@ -54,6 +54,10 @@ model Empresa {
   porcentajeINCES          Float @default(2)
   diasPrestacionesPorMes   Float @default(5)
   porcentajeUtilidades     Float @default(8.33)
+  // Calendario fiscal: día del mes siguiente en que vence la declaración de
+  // IVA para el grupo de RIF de esta empresa (varía según el calendario anual
+  // que publica el SENIAT). El usuario debe ajustarlo según su calendario oficial.
+  diaVencimientoIVA        Int   @default(15)
   cuentas        Cuenta[]
   facturas       Factura[]
   asientos       Asiento[]
