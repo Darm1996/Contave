@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { RefreshCw, ChevronDown, ChevronRight, Download } from 'lucide-react'
 
 interface Movimiento {
@@ -151,6 +152,7 @@ export function LibroMayor() {
                 </CardHeader>
                 {expandida && (
                   <CardContent className="pt-0">
+                    <TableScrollHint />
                     <div className="border-t overflow-x-auto">
                       <ScrollArea className="h-auto max-h-80">
                         <table className="w-full min-w-[600px] text-sm">

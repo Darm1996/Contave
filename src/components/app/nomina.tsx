@@ -8,6 +8,7 @@ import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { apiFetch } from '@/lib/store'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { FileSpreadsheet, RefreshCw, Loader2, Download } from 'lucide-react'
 
 interface Empleado { id: string; nombre: string; cedula: string; salarioBase: number }
@@ -138,6 +139,7 @@ export function Nomina() {
             </Button>
           </div>
 
+          <TableScrollHint />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[600px] text-xs">
               <thead className="bg-slate-100 dark:bg-slate-800">
@@ -221,6 +223,7 @@ export function Nomina() {
                 <div className="text-lg font-bold text-emerald-700">{formatBs(detalle.totalNeto)}</div>
               </div>
             </div>
+            <TableScrollHint />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] text-xs">
                 <thead className="bg-slate-100 dark:bg-slate-800">

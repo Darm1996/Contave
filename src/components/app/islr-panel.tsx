@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
+import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { Calculator, Loader2, Info, Download } from 'lucide-react'
 
 interface Tarifa {
@@ -165,6 +166,7 @@ export function ISLRPanel() {
           <CardTitle className="text-base">Tabla de tarifas ISLR — SENIAT</CardTitle>
           <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
         </CardHeader>
+        <TableScrollHint />
         <CardContent className="p-0 overflow-x-auto">
           <ScrollArea className="h-[500px]">
             <table className="w-full min-w-[700px] text-sm">
