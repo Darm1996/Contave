@@ -20,6 +20,13 @@ export type TabKey =
   | 'configuracion'
   | 'tasa'
   | 'exportar'
+  | 'facturar'
+  | 'clientes'
+  | 'declaracion-igtf'
+  | 'ajuste-inflacion'
+  | 'empleados'
+  | 'nomina'
+  | 'activos-fijos'
 
 interface UserState {
   id: string

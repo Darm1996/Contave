@@ -47,6 +47,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         montoRetencionIVA: factura.montoRetencionIVA,
         montoRetencionISLR: factura.montoRetencionISLR,
         porcentajeRetencionISLR: factura.porcentajeRetencionISLR,
+        montoIGTF: factura.montoIGTF,
+        porcentajeIGTF: factura.porcentajeIGTF,
         totalAPagar: factura.totalAPagar,
         totalMonedaFuncional: factura.totalMonedaFuncional,
         descripcion: factura.descripcion,
@@ -90,6 +92,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         totalMonedaFuncional: factura.totalMonedaFuncional,
         montoRetencionISLR: factura.montoRetencionISLR,
         porcentajeRetencionISLR: factura.porcentajeRetencionISLR,
+        montoIGTF: factura.montoIGTF,
+        porcentajeIGTF: factura.porcentajeIGTF,
         descripcion: factura.descripcion,
         usoGasto,
       })

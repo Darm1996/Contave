@@ -52,7 +52,7 @@ async function main() {
   for (const c of CUENTAS_VEN_NIF) {
     await db.cuenta.upsert({
       where: { empresaId_codigo: { empresaId: empresa.id, codigo: c.codigo } },
-      update: { nombre: c.nombre, tipo: c.tipo, naturaleza: c.naturaleza, nivel: c.nivel, uso: c.uso || null },
+      update: { nombre: c.nombre, tipo: c.tipo, naturaleza: c.naturaleza, nivel: c.nivel, uso: c.uso || null, esMonetaria: c.monetaria ?? true },
       create: {
         empresaId: empresa.id,
         codigo: c.codigo,
@@ -62,6 +62,7 @@ async function main() {
         nivel: c.nivel,
         imputable: c.imputable ?? true,
         uso: c.uso || null,
+        esMonetaria: c.monetaria ?? true,
       },
     })
   }

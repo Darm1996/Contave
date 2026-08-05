@@ -31,6 +31,25 @@ export const USOS_REQUERIDOS = {
   // Costos
   COSTO_VENTA: 'COSTO_VENTA',
   MERCANCIA: 'MERCANCIA',
+  // Nómina, activos fijos, IGTF, ajuste por inflación
+  ISLR_POR_PAGAR: 'ISLR_POR_PAGAR',
+  IMPUESTOS_POR_PAGAR: 'IMPUESTOS_POR_PAGAR',
+  GASTO_IGTF: 'GASTO_IGTF',
+  DEP_ACUMULADA: 'DEP_ACUMULADA',
+  GASTO_DEPRECIACION: 'GASTO_DEPRECIACION',
+  NOMINA_SUELDOS_POR_PAGAR: 'NOMINA_SUELDOS_POR_PAGAR',
+  IVSS_POR_PAGAR: 'IVSS_POR_PAGAR',
+  FAOV_POR_PAGAR: 'FAOV_POR_PAGAR',
+  INCES_POR_PAGAR: 'INCES_POR_PAGAR',
+  PRESTACIONES_POR_PAGAR: 'PRESTACIONES_POR_PAGAR',
+  UTILIDADES_POR_PAGAR: 'UTILIDADES_POR_PAGAR',
+  GASTO_BONO_ALIMENTACION: 'GASTO_BONO_ALIMENTACION',
+  GASTO_APORTES_PATRONALES: 'GASTO_APORTES_PATRONALES',
+  GASTO_PRESTACIONES: 'GASTO_PRESTACIONES',
+  GASTO_UTILIDADES: 'GASTO_UTILIDADES',
+  AJUSTE_INFLACION_PATRIMONIO: 'AJUSTE_INFLACION_PATRIMONIO',
+  GANANCIA_EXPOSICION_INFLACION: 'GANANCIA_EXPOSICION_INFLACION',
+  PERDIDA_EXPOSICION_INFLACION: 'PERDIDA_EXPOSICION_INFLACION',
   // Gastos (cualquier cuenta con uso que empiece con GASTO_)
 } as const
 
@@ -50,7 +69,7 @@ export interface ResultadoAsiento {
 }
 
 // Buscar cuenta por uso dentro de la empresa
-async function buscarCuentaPorUso(empresaId: string, uso: string) {
+export async function buscarCuentaPorUso(empresaId: string, uso: string) {
   const cuenta = await db.cuenta.findFirst({
     where: { empresaId, uso, imputable: true },
   })
@@ -59,7 +78,7 @@ async function buscarCuentaPorUso(empresaId: string, uso: string) {
 }
 
 // Buscar cuenta de gasto por uso (permite pasar uso alternativo)
-async function buscarCuentaGasto(empresaId: string, usoGasto: string) {
+export async function buscarCuentaGasto(empresaId: string, usoGasto: string) {
   const cuenta = await db.cuenta.findFirst({
     where: { empresaId, uso: usoGasto, imputable: true },
   })
@@ -87,6 +106,8 @@ export async function generarAsientoCompra(factura: {
   montoRetencionIVA: number | null
   montoRetencionISLR?: number | null
   porcentajeRetencionISLR?: number | null
+  montoIGTF?: number | null
+  porcentajeIGTF?: number | null
   totalAPagar: number
   totalMonedaFuncional: number
   descripcion: string | null
@@ -144,9 +165,18 @@ export async function generarAsientoCompra(factura: {
     lineas.push({ cuentaId: ctaISLR.id, credit: islrMF, descripcion: `Retención ISLR (${factura.porcentajeRetencionISLR}%)` })
   }
 
-  // 4. Crédito a CxP Proveedores por el monto a pagar (total - retenciones)
+  // 3.c Débito a Gasto IGTF (3% sobre pago en divisas/cripto, no recuperable).
+  // Se suma al monto a pagar (aumenta el desembolso total de la transacción,
+  // el IGTF no es parte de lo que se le debe al proveedor sino un costo aparte).
+  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : 0
+  if (igtfMF > 0) {
+    const ctaIgtf = await buscarCuentaPorUso(factura.empresaId, 'GASTO_IGTF')
+    lineas.push({ cuentaId: ctaIgtf.id, debit: igtfMF, descripcion: `IGTF (${factura.porcentajeIGTF || 3}%)` })
+  }
+
+  // 4. Crédito a CxP Proveedores por el monto a pagar (total - retenciones + IGTF)
   const ctaCxp = await buscarCuentaPorUso(factura.empresaId, 'CXP_PROVEEDORES')
-  lineas.push({ cuentaId: ctaCxp.id, credit: totalAPagarMF, descripcion: 'CxP proveedor' })
+  lineas.push({ cuentaId: ctaCxp.id, credit: totalAPagarMF + igtfMF, descripcion: 'CxP proveedor' })
 
   const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
   const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
@@ -313,6 +343,8 @@ export async function generarAsientoGastoMenor(factura: {
   totalMonedaFuncional: number
   montoRetencionISLR?: number | null
   porcentajeRetencionISLR?: number | null
+  montoIGTF?: number | null
+  porcentajeIGTF?: number | null
   descripcion: string | null
   usoGasto: string
 }): Promise<ResultadoAsiento> {
@@ -347,8 +379,14 @@ export async function generarAsientoGastoMenor(factura: {
     lineas.push({ cuentaId: ctaISLR.id, credit: islrMF, descripcion: `Retención ISLR (${factura.porcentajeRetencionISLR || 0}%)` })
   }
 
+  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : 0
+  if (igtfMF > 0) {
+    const ctaIgtf = await buscarCuentaPorUso(factura.empresaId, 'GASTO_IGTF')
+    lineas.push({ cuentaId: ctaIgtf.id, debit: igtfMF, descripcion: `IGTF (${factura.porcentajeIGTF || 3}%)` })
+  }
+
   const ctaCaja = await buscarCuentaPorUso(factura.empresaId, 'CAJA_CHICA')
-  lineas.push({ cuentaId: ctaCaja.id, credit: totalAPagarMF, descripcion: 'Salida de caja chica' })
+  lineas.push({ cuentaId: ctaCaja.id, credit: totalAPagarMF + igtfMF, descripcion: 'Salida de caja chica' })
 
   const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
   const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
@@ -366,7 +404,7 @@ export async function generarAsientoGastoMenor(factura: {
 export async function persistirAsiento(
   empresaId: string,
   userId: string,
-  facturaId: string,
+  facturaId: string | null,
   tipo: string,
   fecha: Date,
   descripcion: string,
