@@ -69,147 +69,158 @@ export function Dashboard() {
       </div>
 
       {/* KPIs principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Compras del mes</CardTitle>
-            <TrendingDown className="w-4 h-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalCompras)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{mes.cantidadFacturas} factura(s)</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-cyan-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Ventas del mes</CardTitle>
-            <TrendingUp className="w-4 h-4 text-cyan-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalVentas)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Ingresos operacionales</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">IVA Neto a Pagar</CardTitle>
-            <Calculator className="w-4 h-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${mes.ivaNetoPagar >= 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
-              {formatBs(mes.ivaNetoPagar)}
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Débito - Crédito Fiscal</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Retenciones IVA</CardTitle>
-            <Wallet className="w-4 h-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalRetencionesIVA)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Soportadas este mes</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-orange-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Retenciones ISLR</CardTitle>
-            <Receipt className="w-4 h-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalRetencionesISLR || 0)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Por enterar al SENIAT</p>
-          </CardContent>
-        </Card>
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Este mes</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Compras del mes</CardTitle>
+              <TrendingDown className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalCompras)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{mes.cantidadFacturas} factura(s)</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-cyan-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Ventas del mes</CardTitle>
+              <TrendingUp className="w-4 h-4 text-cyan-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalVentas)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Ingresos operacionales</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-amber-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">IVA Neto a Pagar</CardTitle>
+              <Calculator className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className={`text-lg sm:text-2xl font-bold ${mes.ivaNetoPagar >= 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                {formatBs(mes.ivaNetoPagar)}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Débito - Crédito Fiscal</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-purple-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Retenciones IVA</CardTitle>
+              <Wallet className="w-4 h-4 text-purple-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalRetencionesIVA)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Soportadas este mes</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-orange-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Retenciones ISLR</CardTitle>
+              <Receipt className="w-4 h-4 text-orange-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalRetencionesISLR || 0)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Por enterar al SENIAT</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Tasa BCV y cuentas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-slate-800 to-slate-900 text-white">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-slate-300">Tasa BCV (USD)</span>
-              <DollarSign className="w-4 h-4 text-emerald-400" />
-            </div>
-            {data.tasaBCV ? (
-              <>
-                <div className="text-3xl font-bold">Bs. {data.tasaBCV.tasa.toFixed(2)}</div>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                  Actualizada: {new Date(data.tasaBCV.fecha).toLocaleDateString('es-VE')}
-                </p>
-              </>
-            ) : (
-              <div className="text-sm text-slate-400 dark:text-slate-500">Sin tasa registrada</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 flex flex-col items-center justify-center">
-            <Receipt className="w-8 h-8 text-emerald-600 mb-2" />
-            <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">{data.totalCuentas}</div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Cuentas en el plan VEN-NIF</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6 flex flex-col items-center justify-center">
-            <Calculator className="w-8 h-8 text-cyan-600 mb-2" />
-            <div className="text-3xl font-bold text-slate-800 dark:text-slate-100">{mes.cantidadFacturas}</div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Facturas procesadas este mes</p>
-          </CardContent>
-        </Card>
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Resumen general</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <Card className="bg-gradient-to-br from-slate-800 to-slate-900 text-white col-span-2 sm:col-span-1">
+            <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-slate-300">Tasa BCV (USD)</span>
+                <DollarSign className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+              </div>
+              {data.tasaBCV ? (
+                <>
+                  <div className="text-2xl sm:text-3xl font-bold">Bs. {data.tasaBCV.tasa.toFixed(2)}</div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    Actualizada: {new Date(data.tasaBCV.fecha).toLocaleDateString('es-VE')}
+                  </p>
+                </>
+              ) : (
+                <div className="text-sm text-slate-400 dark:text-slate-500">Sin tasa registrada</div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6 pb-3 sm:pb-6 flex flex-col items-center justify-center text-center">
+              <Receipt className="w-6 h-6 sm:w-8 sm:h-8 text-emerald-600 mb-2" />
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">{data.totalCuentas}</div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Cuentas en el plan VEN-NIF</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6 pb-3 sm:pb-6 flex flex-col items-center justify-center text-center">
+              <Calculator className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-600 mb-2" />
+              <div className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">{mes.cantidadFacturas}</div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Facturas procesadas este mes</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* KPIs de módulos nuevos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">IGTF pagado</CardTitle>
-            <FileWarning className="w-4 h-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalIGTF || 0)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">3% pagos en divisas/cripto</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-cyan-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Activos fijos</CardTitle>
-            <Package className="w-4 h-4 text-cyan-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(data.activosFijos.valorLibro)}</div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.activosFijos.cantidad} activo(s), valor en libros</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Nómina del mes</CardTitle>
-            <Users className="w-4 h-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-              {data.nominaMes ? formatBs(data.nominaMes.totalNeto) : '—'}
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.nominaMes ? 'Neto procesado' : 'Sin procesar este mes'}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600 dark:text-slate-400">Ajuste por inflación</CardTitle>
-            <TrendingUp className="w-4 h-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${(data.ajusteInflacionMes?.resultadoExposicionInflacion || 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-              {data.ajusteInflacionMes ? formatBs(data.ajusteInflacionMes.resultadoExposicionInflacion) : '—'}
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.ajusteInflacionMes ? 'REI del mes' : 'Sin generar este mes'}</p>
-          </CardContent>
-        </Card>
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Otros módulos</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Card className="border-l-4 border-l-red-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">IGTF pagado</CardTitle>
+              <FileWarning className="w-4 h-4 text-red-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(mes.totalIGTF || 0)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">3% divisas/cripto</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-cyan-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Activos fijos</CardTitle>
+              <Package className="w-4 h-4 text-cyan-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(data.activosFijos.valorLibro)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.activosFijos.cantidad} activo(s)</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Nómina del mes</CardTitle>
+              <Users className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {data.nominaMes ? formatBs(data.nominaMes.totalNeto) : '—'}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.nominaMes ? 'Neto procesado' : 'Sin procesar'}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-l-4 border-l-amber-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Ajuste inflación</CardTitle>
+              <TrendingUp className="w-4 h-4 text-amber-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className={`text-lg sm:text-2xl font-bold ${(data.ajusteInflacionMes?.resultadoExposicionInflacion || 0) >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {data.ajusteInflacionMes ? formatBs(data.ajusteInflacionMes.resultadoExposicionInflacion) : '—'}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.ajusteInflacionMes ? 'REI del mes' : 'Sin generar'}</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Listas recientes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Actividad reciente</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Últimas facturas registradas</CardTitle>
@@ -259,6 +270,7 @@ export function Dashboard() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   )
