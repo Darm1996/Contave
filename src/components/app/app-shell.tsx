@@ -35,6 +35,7 @@ import { CuentasPorCobrar, CuentasPorPagar } from './cuentas-por-cobrar-pagar'
 import { Vacaciones, Liquidaciones } from './nomina-lottt'
 import { Equipo } from './equipo'
 import { Accionistas, ActasAsamblea } from './societario'
+import { DeclaracionISLRAnual } from './declaracion-islr-anual'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -67,6 +68,7 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'libro-ventas', label: 'Libro de Ventas', icon: FileText },
   { key: 'islr', label: 'Retenciones ISLR', icon: Receipt, section: 'Reportes ISLR' },
   { key: 'reporte-islr', label: 'Reporte Mensual ISLR', icon: FileSpreadsheet },
+  { key: 'declaracion-islr-anual', label: 'Declaración Anual ISLR', icon: FileBarChart },
   { key: 'productos', label: 'Productos', icon: Boxes, section: 'Inventario' },
   { key: 'inventario', label: 'Kardex', icon: Warehouse },
   { key: 'cuentas-por-cobrar', label: 'Cuentas por Cobrar', icon: Wallet, section: 'Cobranza y Pagos' },
@@ -286,6 +288,7 @@ export function AppShell() {
           {tab === 'libro-ventas' && <LibroVentas />}
           {tab === 'islr' && <ISLRPanel />}
           {tab === 'reporte-islr' && <ReporteISLR />}
+          {tab === 'declaracion-islr-anual' && <DeclaracionISLRAnual />}
           {tab === 'cuentas' && <PlanCuentas />}
           {tab === 'activos-fijos' && <ActivosFijos />}
           {tab === 'declaracion-igtf' && <DeclaracionIGTF />}
