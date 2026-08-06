@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresaRole } from '@/lib/auth'
 import { cerrarEjercicio } from '@/lib/contabilidad/ejercicios'
+import { registrarAuditoria } from '@/lib/auditoria'
 
 // POST /api/ejercicios/[ano]/cerrar
 export async function POST(req: NextRequest, { params }: { params: Promise<{ ano: string }> }) {
@@ -11,6 +12,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ano
     if (isNaN(ano)) return NextResponse.json({ error: 'Año inválido' }, { status: 400 })
 
     const resultado = await cerrarEjercicio(empresaId, ano, user.id)
+    await registrarAuditoria({
+      empresaId, userId: user.id, userEmail: user.email,
+      accion: 'EJERCICIO_CERRADO', entidad: 'Ejercicio', entidadId: resultado.ejercicio.id,
+      detalle: `Ejercicio ${ano} cerrado. Utilidad neta: ${resultado.utilidadNeta}, ISLR estimado: ${resultado.islrEstimado}`,
+    })
     return NextResponse.json({
       ok: true,
       ejercicio: resultado.ejercicio,

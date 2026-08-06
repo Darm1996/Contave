@@ -36,6 +36,7 @@ import { Vacaciones, Liquidaciones } from './nomina-lottt'
 import { Equipo } from './equipo'
 import { Accionistas, ActasAsamblea } from './societario'
 import { DeclaracionISLRAnual } from './declaracion-islr-anual'
+import { Auditoria } from './auditoria'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -45,11 +46,11 @@ import {
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
-  Wallet, HandCoins, TreePalm, UserMinus, UsersRound, Gavel,
+  Wallet, HandCoins, TreePalm, UserMinus, UsersRound, Gavel, ShieldAlert,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
-const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
+const NAV: Array<{ key: any; label: string; icon: any; section?: string; adminOnly?: boolean }> = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Principal' },
   { key: 'vencimientos-fiscales', label: 'Calendario Fiscal', icon: CalendarClock },
   { key: 'escaner', label: 'Escanear Factura', icon: ScanLine, section: 'Operación' },
@@ -83,6 +84,7 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
   { key: 'empresas', label: 'Empresas', icon: Building2 },
   { key: 'equipo', label: 'Equipo', icon: UsersRound },
+  { key: 'auditoria', label: 'Auditoría', icon: ShieldAlert, adminOnly: true },
   { key: 'configuracion', label: 'Configuración', icon: Settings },
   { key: 'tasa', label: 'Tasa de Cambio', icon: DollarSign },
   { key: 'exportar', label: 'Exportar', icon: Download },
@@ -129,6 +131,7 @@ export function AppShell() {
   })
 
   const initials = user.name?.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() || user.email.slice(0, 2).toUpperCase()
+  const esAdminEmpresa = empresaActiva?.rol === 'ADMIN' || user.role === 'SUPER_ADMIN'
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-slate-950">
@@ -203,7 +206,7 @@ export function AppShell() {
                 </div>
               )}
               <div className="space-y-0.5">
-                {items.map((item) => {
+                {items.filter((item) => !item.adminOnly || esAdminEmpresa).map((item) => {
                   const Icon = item.icon
                   const active = tab === item.key
                   return (
@@ -289,6 +292,7 @@ export function AppShell() {
           {tab === 'islr' && <ISLRPanel />}
           {tab === 'reporte-islr' && <ReporteISLR />}
           {tab === 'declaracion-islr-anual' && <DeclaracionISLRAnual />}
+          {tab === 'auditoria' && <Auditoria />}
           {tab === 'cuentas' && <PlanCuentas />}
           {tab === 'activos-fijos' && <ActivosFijos />}
           {tab === 'declaracion-igtf' && <DeclaracionIGTF />}

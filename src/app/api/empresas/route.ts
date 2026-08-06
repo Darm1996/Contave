@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser, setSessionCookie, requireAuth, requireEmpresaRole } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { CUENTAS_VEN_NIF } from '@/lib/contabilidad/plan-cuentas-ven-nif'
+import { registrarAuditoria } from '@/lib/auditoria'
 
 // Límite máximo de empresas por usuario (plan estándar)
 const MAX_EMPRESAS_POR_USUARIO = 5
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
 // PATCH: actualizar datos de la empresa activa
 export async function PATCH(req: NextRequest) {
   try {
-    const { empresaId } = await requireEmpresaRole('ADMIN')
+    const { user, empresaId } = await requireEmpresaRole('ADMIN')
 
     const body = await req.json()
     const data: Record<string, unknown> = {}
@@ -143,6 +144,11 @@ export async function PATCH(req: NextRequest) {
     }
 
     const empresa = await db.empresa.update({ where: { id: empresaId }, data })
+    await registrarAuditoria({
+      empresaId, userId: user.id, userEmail: user.email,
+      accion: 'EMPRESA_EDITADA', entidad: 'Empresa', entidadId: empresaId,
+      detalle: `Campos editados: ${Object.keys(data).join(', ')}`,
+    })
     return NextResponse.json({ empresa })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })

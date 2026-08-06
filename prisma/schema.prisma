@@ -83,6 +83,7 @@ model Empresa {
   liquidaciones           Liquidacion[]
   accionistas             Accionista[]
   actasAsamblea           ActaAsamblea[]
+  auditLogs               AuditLog[]
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
 }
@@ -642,4 +643,27 @@ model ActaAsamblea {
   createdAt             DateTime @default(now())
 
   @@unique([empresaId, numero])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  AUDITORÍA (historial de acciones sensibles)
+// ───────────────────────────────────────────────────────────────────────
+
+// Registro de acciones sensibles (cierre/reapertura de ejercicios,
+// liquidaciones, cambios de rol, desactivación de registros, edición de
+// la empresa). userEmail se guarda denormalizado para que el registro
+// siga siendo legible aunque el usuario luego se elimine o cambie de email.
+model AuditLog {
+  id        String   @id @default(cuid())
+  empresaId String
+  userId    String?
+  userEmail String
+  accion    String
+  entidad   String?
+  entidadId String?
+  detalle   String?
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([empresaId, createdAt])
 }
