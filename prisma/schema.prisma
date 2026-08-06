@@ -20,61 +20,67 @@ datasource db {
 // ───────────────────────────────────────────────────────────────────────
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
+  id           String   @id @default(cuid())
+  email        String   @unique
   name         String
   passwordHash String
-  role         String        @default("CONTADOR") // SUPER_ADMIN, ADMIN, CONTADOR, AUXILIAR
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  role         String   @default("CONTADOR") // SUPER_ADMIN, ADMIN, CONTADOR, AUXILIAR
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  empresas     UserEmpresa[]
-  facturas     Factura[]
-  asientos     Asiento[]
-  sesiones     Sesion[]
+  empresas UserEmpresa[]
+  facturas Factura[]
+  asientos Asiento[]
+  sesiones Sesion[]
+  pagos    Pago[]
 
   @@map("user")
 }
 
 model Empresa {
-  id            String   @id @default(cuid())
-  nombre        String
-  rif           String   @unique
-  direccion     String?
-  telefono      String?
-  email         String?
-  esAgenteRetencionIVA Boolean @default(false)
-  esContribuyenteEspecial Boolean @default(false)
-  alicuotaIVA            Float   @default(16.0)
-  monedaFuncional String  @default("VES")
+  id                      String               @id @default(cuid())
+  nombre                  String
+  rif                     String               @unique
+  direccion               String?
+  telefono                String?
+  email                   String?
+  esAgenteRetencionIVA    Boolean              @default(false)
+  esContribuyenteEspecial Boolean              @default(false)
+  alicuotaIVA             Float                @default(16.0)
+  monedaFuncional         String               @default("VES")
   // Nómina: porcentajes configurables (varían por ley/clase de riesgo), con default legal usual
-  porcentajeIVSSPatronal   Float @default(9)
-  porcentajeFAOVEmpleado   Float @default(1)
-  porcentajeFAOVPatronal   Float @default(2)
-  porcentajeINCES          Float @default(2)
-  diasPrestacionesPorMes   Float @default(5)
-  porcentajeUtilidades     Float @default(8.33)
+  porcentajeIVSSPatronal  Float                @default(9)
+  porcentajeFAOVEmpleado  Float                @default(1)
+  porcentajeFAOVPatronal  Float                @default(2)
+  porcentajeINCES         Float                @default(2)
+  diasPrestacionesPorMes  Float                @default(5)
+  porcentajeUtilidades    Float                @default(8.33)
   // Calendario fiscal: día del mes siguiente en que vence la declaración de
   // IVA para el grupo de RIF de esta empresa (varía según el calendario anual
   // que publica el SENIAT). El usuario debe ajustarlo según su calendario oficial.
-  diaVencimientoIVA        Int   @default(15)
-  cuentas        Cuenta[]
-  facturas       Factura[]
-  asientos       Asiento[]
-  tasaCambios    TasaCambio[]
-  usuarios       UserEmpresa[]
-  ejercicios     Ejercicio[]
-  conciliaciones ConciliacionBanco[]
-  clientes            Cliente[]
-  secuenciasDocumento SecuenciaDocumento[]
-  indicesInflacion    IndiceInflacion[]
-  ajustesInflacion    AjusteInflacion[]
-  empleados           Empleado[]
-  nominas             Nomina[]
-  activosFijos        ActivoFijo[]
-  productos           Producto[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  diaVencimientoIVA       Int                  @default(15)
+  // Cuentas por cobrar/pagar: plazo de crédito por defecto (días) usado para
+  // calcular la fecha de vencimiento y la antigüedad de saldos de cada factura.
+  diasCreditoClientes     Int                  @default(30)
+  diasCreditoProveedores  Int                  @default(30)
+  cuentas                 Cuenta[]
+  facturas                Factura[]
+  asientos                Asiento[]
+  tasaCambios             TasaCambio[]
+  usuarios                UserEmpresa[]
+  ejercicios              Ejercicio[]
+  conciliaciones          ConciliacionBanco[]
+  clientes                Cliente[]
+  secuenciasDocumento     SecuenciaDocumento[]
+  indicesInflacion        IndiceInflacion[]
+  ajustesInflacion        AjusteInflacion[]
+  empleados               Empleado[]
+  nominas                 Nomina[]
+  activosFijos            ActivoFijo[]
+  productos               Producto[]
+  pagos                   Pago[]
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
 }
 
 model UserEmpresa {
@@ -99,198 +105,204 @@ model Sesion {
 }
 
 model Cuenta {
-  id         String   @id @default(cuid())
-  empresaId  String
-  codigo     String
-  nombre     String
-  tipo       String
-  naturaleza String
-  nivel      Int      @default(4)
-  padreId    String?
-  imputable  Boolean  @default(true)
-  uso        String?
+  id             String              @id @default(cuid())
+  empresaId      String
+  codigo         String
+  nombre         String
+  tipo           String
+  naturaleza     String
+  nivel          Int                 @default(4)
+  padreId        String?
+  imputable      Boolean             @default(true)
+  uso            String?
   // Ajuste por inflación: si la cuenta representa una partida monetaria (efectivo,
   // cuentas por cobrar/pagar, impuestos) o no monetaria (activos fijos, inventario,
   // capital) — determina si se reexpresa por el índice de inflación del período.
-  esMonetaria Boolean @default(true)
-  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  lineas     AsientoLinea[]
+  esMonetaria    Boolean             @default(true)
+  empresa        Empresa             @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  lineas         AsientoLinea[]
   conciliaciones ConciliacionBanco[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@unique([empresaId, codigo])
   @@index([empresaId, uso])
 }
 
 model TasaCambio {
-  id         String   @id @default(cuid())
-  empresaId  String
-  fecha      DateTime
-  monedaRef  String   @default("USD")
-  tasa       Float
-  fuente     String   @default("BCV")
-  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  empresaId String
+  fecha     DateTime
+  monedaRef String   @default("USD")
+  tasa      Float
+  fuente    String   @default("BCV")
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@unique([empresaId, fecha, monedaRef])
 }
 
 model Factura {
-  id              String   @id @default(cuid())
-  empresaId       String
-  userId          String
-  tipo            String
-  rifContraparte  String
-  nombreContraparte String
-  numeroFactura   String?
-  numeroControl   String?
-  ncf             String?
-  fechaEmision    DateTime
-  fechaRegistro   DateTime @default(now())
-  monedaOriginal  String   @default("VES")
-  baseImponible   Float    @default(0)
-  montoExento     Float    @default(0)
-  montoExonerado  Float    @default(0)
-  alicuotaIVA     Float    @default(16.0)
-  montoIVA        Float    @default(0)
-  porcentajeRetencionIVA Float?
-  montoRetencionIVA      Float?
-  tarifaISLRCodigo       String?
+  id                      String   @id @default(cuid())
+  empresaId               String
+  userId                  String
+  tipo                    String
+  rifContraparte          String
+  nombreContraparte       String
+  numeroFactura           String?
+  numeroControl           String?
+  ncf                     String?
+  fechaEmision            DateTime
+  fechaRegistro           DateTime @default(now())
+  monedaOriginal          String   @default("VES")
+  baseImponible           Float    @default(0)
+  montoExento             Float    @default(0)
+  montoExonerado          Float    @default(0)
+  alicuotaIVA             Float    @default(16.0)
+  montoIVA                Float    @default(0)
+  porcentajeRetencionIVA  Float?
+  montoRetencionIVA       Float?
+  tarifaISLRCodigo        String?
   porcentajeRetencionISLR Float?
-  baseRetencionISLR      Float?
-  montoRetencionISLR     Float?
+  baseRetencionISLR       Float?
+  montoRetencionISLR      Float?
   // IGTF (Impuesto a las Grandes Transacciones Financieras, 3%): se activa si el
   // pago se hizo en divisas/cripto, o si la empresa es contribuyente especial y
   // el pago fue en efectivo. Se registra como gasto no recuperable.
-  pagoDivisaOCripto Boolean @default(false)
-  pagoEfectivo      Boolean @default(false)
-  porcentajeIGTF    Float?
-  montoIGTF         Float?
-  subtotal        Float    @default(0)
-  total           Float    @default(0)
-  totalRetencion  Float    @default(0)
-  totalAPagar     Float    @default(0)
-  tasaCambio      Float?
-  totalMonedaFuncional Float @default(0)
-  descripcion     String?
-  imagenUrl       String?
-  imagenData      String?
+  pagoDivisaOCripto       Boolean  @default(false)
+  pagoEfectivo            Boolean  @default(false)
+  porcentajeIGTF          Float?
+  montoIGTF               Float?
+  subtotal                Float    @default(0)
+  total                   Float    @default(0)
+  totalRetencion          Float    @default(0)
+  totalAPagar             Float    @default(0)
+  tasaCambio              Float?
+  totalMonedaFuncional    Float    @default(0)
+  descripcion             String?
+  imagenUrl               String?
+  imagenData              String?
   // Solo relevante cuando tipo es NOTA_CREDITO o NOTA_DEBITO: indica si la nota
   // afecta una venta (true) o una compra (false), para el débito/crédito fiscal
   // de la declaración de IVA. Se ignora para los demás tipos.
-  ncfAfectaVenta  Boolean  @default(true)
-  asiento         Asiento?
-  estado          String   @default("REGISTRADA")
-  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  usuario         User     @relation(fields: [userId], references: [id])
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  ncfAfectaVenta          Boolean  @default(true)
+  asiento                 Asiento?
+  estado                  String   @default("REGISTRADA")
+  // Cuentas por cobrar/pagar: se actualizan al registrar pagos (ver modelo Pago).
+  // Solo aplican a facturas tipo VENTA (CxC) y COMPRA (CxP); GASTO_MENOR se
+  // paga de contado por caja chica y no genera partida abierta.
+  montoPagado             Float    @default(0)
+  estadoPago              String   @default("PENDIENTE") // PENDIENTE | PARCIAL | PAGADA
+  pagos                   Pago[]
+  empresa                 Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario                 User     @relation(fields: [userId], references: [id])
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@index([empresaId, tipo, fechaEmision])
   @@index([empresaId, ncf])
 }
 
 model Asiento {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   empresaId   String
   userId      String
   numero      Int
   fecha       DateTime
   descripcion String
   referencia  String?
-  tipo        String   @default("MANUAL")
-  facturaId   String?  @unique
-  fuente      String   @default("manual")
+  tipo        String         @default("MANUAL")
+  facturaId   String?        @unique
+  fuente      String         @default("manual")
   lineas      AsientoLinea[]
-  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  usuario     User     @relation(fields: [userId], references: [id])
-  factura     Factura? @relation(fields: [facturaId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  empresa     Empresa        @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario     User           @relation(fields: [userId], references: [id])
+  factura     Factura?       @relation(fields: [facturaId], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   @@index([empresaId, fecha])
   @@index([empresaId, numero])
 }
 
 model AsientoLinea {
-  id         String   @id @default(cuid())
-  asientoId  String
-  cuentaId   String
-  cuenta     Cuenta   @relation(fields: [cuentaId], references: [id])
-  debit      Float    @default(0)
-  credit     Float    @default(0)
+  id          String   @id @default(cuid())
+  asientoId   String
+  cuentaId    String
+  cuenta      Cuenta   @relation(fields: [cuentaId], references: [id])
+  debit       Float    @default(0)
+  credit      Float    @default(0)
   descripcion String?
-  asiento    Asiento  @relation(fields: [asientoId], references: [id], onDelete: Cascade)
-  createdAt  DateTime @default(now())
+  asiento     Asiento  @relation(fields: [asientoId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
 
   @@index([asientoId])
   @@index([cuentaId])
 }
 
 model Ejercicio {
-  id          String   @id @default(cuid())
-  empresaId   String
-  ano         Int
-  estado      String   @default("ABIERTO")
-  fechaInicio DateTime
-  fechaCierre DateTime
+  id                String    @id @default(cuid())
+  empresaId         String
+  ano               Int
+  estado            String    @default("ABIERTO")
+  fechaInicio       DateTime
+  fechaCierre       DateTime
   asientoCierreId   String?
   asientoAperturaId String?
-  utilidadNeta       Float?
-  islrEstimado       Float?
-  cerradoPor         String?
-  cerradoEn          DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  utilidadNeta      Float?
+  islrEstimado      Float?
+  cerradoPor        String?
+  cerradoEn         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
 
   @@unique([empresaId, ano])
   @@index([empresaId, estado])
 }
 
 model ConciliacionBanco {
-  id            String   @id @default(cuid())
-  empresaId     String
-  cuentaId      String
-  mes           Int
-  ano           Int
-  saldoInicialLibro   Float @default(0)
-  saldoInicialBanco   Float @default(0)
-  saldoFinalLibro     Float @default(0)
-  saldoFinalBanco     Float @default(0)
-  depositosEnTransito Float @default(0)
-  chequesPendientes   Float @default(0)
-  notasCredito        Float @default(0)
-  notasDebito         Float @default(0)
-  estado        String   @default("PENDIENTE")
-  diferencia    Float    @default(0)
-  notas         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  empresaId           String
+  cuentaId            String
+  mes                 Int
+  ano                 Int
+  saldoInicialLibro   Float    @default(0)
+  saldoInicialBanco   Float    @default(0)
+  saldoFinalLibro     Float    @default(0)
+  saldoFinalBanco     Float    @default(0)
+  depositosEnTransito Float    @default(0)
+  chequesPendientes   Float    @default(0)
+  notasCredito        Float    @default(0)
+  notasDebito         Float    @default(0)
+  estado              String   @default("PENDIENTE")
+  diferencia          Float    @default(0)
+  notas               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  empresa       Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  cuenta        Cuenta          @relation(fields: [cuentaId], references: [id])
-  movimientos   MovimientoBanco[]
+  empresa     Empresa           @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  cuenta      Cuenta            @relation(fields: [cuentaId], references: [id])
+  movimientos MovimientoBanco[]
 
   @@unique([empresaId, cuentaId, mes, ano])
   @@index([empresaId, mes, ano])
 }
 
 model MovimientoBanco {
-  id              String   @id @default(cuid())
-  conciliacionId  String
-  fecha           DateTime
-  descripcion     String
-  referencia      String?
-  monto           Float
-  tipo            String
-  conciliado      Boolean  @default(false)
-  asientoLineaId  String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  conciliacionId String
+  fecha          DateTime
+  descripcion    String
+  referencia     String?
+  monto          Float
+  tipo           String
+  conciliado     Boolean  @default(false)
+  asientoLineaId String?
+  createdAt      DateTime @default(now())
 
-  conciliacion    ConciliacionBanco @relation(fields: [conciliacionId], references: [id], onDelete: Cascade)
+  conciliacion ConciliacionBanco @relation(fields: [conciliacionId], references: [id], onDelete: Cascade)
 
   @@index([conciliacionId])
   @@index([conciliacionId, conciliado])
@@ -330,6 +342,33 @@ model SecuenciaDocumento {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+//  CUENTAS POR COBRAR / CUENTAS POR PAGAR (registro de pagos)
+// ───────────────────────────────────────────────────────────────────────
+
+// Pago aplicado a una factura de VENTA (cobro de cliente) o COMPRA (pago a
+// proveedor). Es el subledger detrás de las cuentas de control CXC_CLIENTES /
+// CXP_PROVEEDORES: la factura mantiene montoPagado/estadoPago como resumen.
+model Pago {
+  id         String   @id @default(cuid())
+  empresaId  String
+  facturaId  String
+  userId     String
+  monto      Float
+  fecha      DateTime @default(now())
+  metodoPago String   @default("TRANSFERENCIA") // TRANSFERENCIA | EFECTIVO | PAGO_MOVIL | ZELLE | TARJETA | CHEQUE | OTRO
+  referencia String?
+  cuentaId   String? // cuenta de banco/caja usada, si se generó asiento
+  asientoId  String?  @unique
+  factura    Factura  @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario    User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@index([facturaId])
+  @@index([empresaId, fecha])
+}
+
+// ───────────────────────────────────────────────────────────────────────
 //  AJUSTE POR INFLACIÓN (reexpresión simplificada, nivel general de precios)
 // ───────────────────────────────────────────────────────────────────────
 
@@ -347,20 +386,20 @@ model IndiceInflacion {
 }
 
 model AjusteInflacion {
-  id                    String   @id @default(cuid())
-  empresaId             String
-  mes                   Int
-  ano                   Int
-  indiceInicial         Float
-  indiceFinal           Float
-  factorReexpresion     Float
-  totalReexpresadoActivos Float  @default(0)
-  resultadoExposicionInflacion Float @default(0)
-  estado                String   @default("BORRADOR")
-  asientoId             String?
-  empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                           String   @id @default(cuid())
+  empresaId                    String
+  mes                          Int
+  ano                          Int
+  indiceInicial                Float
+  indiceFinal                  Float
+  factorReexpresion            Float
+  totalReexpresadoActivos      Float    @default(0)
+  resultadoExposicionInflacion Float    @default(0)
+  estado                       String   @default("BORRADOR")
+  asientoId                    String?
+  empresa                      Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 
   @@unique([empresaId, mes, ano])
 }
@@ -370,63 +409,63 @@ model AjusteInflacion {
 // ───────────────────────────────────────────────────────────────────────
 
 model Empleado {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   empresaId    String
   cedula       String
   nombre       String
   cargo        String?
   fechaIngreso DateTime
   salarioBase  Float
-  activo       Boolean  @default(true)
-  empresa      Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  activo       Boolean         @default(true)
+  empresa      Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   detalles     NominaDetalle[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@unique([empresaId, cedula])
 }
 
 model Nomina {
-  id                     String   @id @default(cuid())
+  id                     String          @id @default(cuid())
   empresaId              String
   mes                    Int
   ano                    Int
   fechaPago              DateTime?
-  estado                 String   @default("BORRADOR")
-  totalSueldos           Float    @default(0)
-  totalBonoAlimentacion  Float    @default(0)
-  totalDeducciones       Float    @default(0)
-  totalAportesPatronales Float    @default(0)
-  totalPrestaciones      Float    @default(0)
-  totalUtilidades        Float    @default(0)
-  totalNeto              Float    @default(0)
+  estado                 String          @default("BORRADOR")
+  totalSueldos           Float           @default(0)
+  totalBonoAlimentacion  Float           @default(0)
+  totalDeducciones       Float           @default(0)
+  totalAportesPatronales Float           @default(0)
+  totalPrestaciones      Float           @default(0)
+  totalUtilidades        Float           @default(0)
+  totalNeto              Float           @default(0)
   asientoId              String?
-  empresa                Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa                Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   detalles               NominaDetalle[]
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   @@unique([empresaId, mes, ano])
 }
 
 model NominaDetalle {
-  id                       String   @id @default(cuid())
-  nominaId                 String
-  empleadoId               String
-  salarioBase              Float
-  bonoAlimentacion         Float    @default(0)
-  deduccionIVSS            Float    @default(0)
-  deduccionFAOV            Float    @default(0)
-  totalDeducciones         Float    @default(0)
-  aportePatronalIVSS       Float    @default(0)
-  aportePatronalFAOV       Float    @default(0)
-  aportePatronalINCES      Float    @default(0)
-  provisionPrestaciones    Float    @default(0)
-  provisionUtilidades      Float    @default(0)
-  netoAPagar               Float    @default(0)
-  nomina                   Nomina   @relation(fields: [nominaId], references: [id], onDelete: Cascade)
-  empleado                 Empleado @relation(fields: [empleadoId], references: [id])
-  createdAt                DateTime @default(now())
+  id                    String   @id @default(cuid())
+  nominaId              String
+  empleadoId            String
+  salarioBase           Float
+  bonoAlimentacion      Float    @default(0)
+  deduccionIVSS         Float    @default(0)
+  deduccionFAOV         Float    @default(0)
+  totalDeducciones      Float    @default(0)
+  aportePatronalIVSS    Float    @default(0)
+  aportePatronalFAOV    Float    @default(0)
+  aportePatronalINCES   Float    @default(0)
+  provisionPrestaciones Float    @default(0)
+  provisionUtilidades   Float    @default(0)
+  netoAPagar            Float    @default(0)
+  nomina                Nomina   @relation(fields: [nominaId], references: [id], onDelete: Cascade)
+  empleado              Empleado @relation(fields: [empleadoId], references: [id])
+  createdAt             DateTime @default(now())
 
   @@unique([nominaId, empleadoId])
   @@index([nominaId])
@@ -437,35 +476,35 @@ model NominaDetalle {
 // ───────────────────────────────────────────────────────────────────────
 
 model ActivoFijo {
-  id                  String   @id @default(cuid())
-  empresaId           String
-  nombre              String
-  cuentaActivoId      String
-  costoAdquisicion    Float
-  fechaAdquisicion    DateTime
-  vidaUtilMeses       Int
-  valorResidual       Float    @default(0)
-  metodoDepreciacion  String   @default("LINEA_RECTA")
-  depreciacionAcumulada Float  @default(0)
-  estado              String   @default("ACTIVO")
-  empresa             Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  movimientos         MovimientoDepreciacion[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                    String                   @id @default(cuid())
+  empresaId             String
+  nombre                String
+  cuentaActivoId        String
+  costoAdquisicion      Float
+  fechaAdquisicion      DateTime
+  vidaUtilMeses         Int
+  valorResidual         Float                    @default(0)
+  metodoDepreciacion    String                   @default("LINEA_RECTA")
+  depreciacionAcumulada Float                    @default(0)
+  estado                String                   @default("ACTIVO")
+  empresa               Empresa                  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  movimientos           MovimientoDepreciacion[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 
   @@index([empresaId, estado])
 }
 
 model MovimientoDepreciacion {
-  id               String     @id @default(cuid())
-  activoFijoId     String
-  mes              Int
-  ano              Int
-  montoDepreciado  Float
+  id                String     @id @default(cuid())
+  activoFijoId      String
+  mes               Int
+  ano               Int
+  montoDepreciado   Float
   valorLibroDespues Float
-  asientoId        String?
-  activoFijo       ActivoFijo @relation(fields: [activoFijoId], references: [id], onDelete: Cascade)
-  createdAt        DateTime   @default(now())
+  asientoId         String?
+  activoFijo        ActivoFijo @relation(fields: [activoFijoId], references: [id], onDelete: Cascade)
+  createdAt         DateTime   @default(now())
 
   @@unique([activoFijoId, mes, ano])
 }
@@ -475,39 +514,39 @@ model MovimientoDepreciacion {
 // ───────────────────────────────────────────────────────────────────────
 
 model Producto {
-  id                  String   @id @default(cuid())
+  id                  String                 @id @default(cuid())
   empresaId           String
   codigo              String
   nombre              String
   descripcion         String?
-  unidadMedida        String   @default("UND")
+  unidadMedida        String                 @default("UND")
   cuentaInventarioId  String
-  costoPromedioActual Float    @default(0)
-  cantidadActual      Float    @default(0)
-  activo              Boolean  @default(true)
-  empresa             Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  costoPromedioActual Float                  @default(0)
+  cantidadActual      Float                  @default(0)
+  activo              Boolean                @default(true)
+  empresa             Empresa                @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   movimientos         MovimientoInventario[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
 
   @@unique([empresaId, codigo])
 }
 
 model MovimientoInventario {
-  id                  String   @id @default(cuid())
-  productoId          String
-  tipo                String // ENTRADA | SALIDA | AJUSTE
-  cantidad            Float
-  costoUnitario       Float
-  costoTotal          Float
-  cantidadSaldo       Float
-  costoPromedioSaldo  Float
-  facturaId           String?
-  motivo              String?
-  asientoId           String?
-  fecha               DateTime @default(now())
-  producto            Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(cuid())
+  productoId         String
+  tipo               String // ENTRADA | SALIDA | AJUSTE
+  cantidad           Float
+  costoUnitario      Float
+  costoTotal         Float
+  cantidadSaldo      Float
+  costoPromedioSaldo Float
+  facturaId          String?
+  motivo             String?
+  asientoId          String?
+  fecha              DateTime @default(now())
+  producto           Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
 
   @@index([productoId, fecha])
 }

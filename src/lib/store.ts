@@ -30,6 +30,8 @@ export type TabKey =
   | 'vencimientos-fiscales'
   | 'productos'
   | 'inventario'
+  | 'cuentas-por-cobrar'
+  | 'cuentas-por-pagar'
 
 interface UserState {
   id: string
