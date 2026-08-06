@@ -10,6 +10,7 @@ export interface CuentaSaldo {
   tipo: string
   naturaleza: string
   nivel: number
+  uso: string | null
   saldo: number
 }
 
@@ -66,7 +67,9 @@ export interface EstadoResultado {
 
 // Obtener saldos de todas las cuentas imputables en un período
 // Una sola consulta agregada (groupBy) en vez de un findMany por cuenta.
-async function obtenerSaldosCuentas(empresaId: string, desde: Date, hasta: Date): Promise<CuentaSaldo[]> {
+// Se exporta porque el estado de flujo de efectivo y el estado de cambios en
+// el patrimonio necesitan comparar saldos "al cierre de" dos fechas de corte.
+export async function obtenerSaldosCuentas(empresaId: string, desde: Date, hasta: Date): Promise<CuentaSaldo[]> {
   const cuentas = await db.cuenta.findMany({
     where: { empresaId, imputable: true },
     orderBy: { codigo: 'asc' },
@@ -97,6 +100,7 @@ async function obtenerSaldosCuentas(empresaId: string, desde: Date, hasta: Date)
         tipo: cuenta.tipo,
         naturaleza: cuenta.naturaleza,
         nivel: cuenta.nivel,
+        uso: cuenta.uso,
         saldo,
       })
     }
@@ -190,5 +194,188 @@ export async function generarEstadoResultado(
     utilidadAntesISLR,
     islrEstimado,
     utilidadNeta,
+  }
+}
+
+const USOS_EFECTIVO = ['CAJA', 'CAJA_CHICA', 'BANCOS_BS', 'BANCOS_USD']
+
+// ───────────────────────────────────────────────────────────────────────
+//  ESTADO DE FLUJO DE EFECTIVO (método indirecto)
+// ───────────────────────────────────────────────────────────────────────
+//
+// Se deriva directamente de la variación de cada cuenta del balance entre
+// el inicio y el fin del período — no de un registro de "actividad" por
+// transacción (la app no lo lleva). Como Activo = Pasivo + Patrimonio +
+// Resultado del ejercicio siempre se cumple, la suma de todos los
+// movimientos (con el signo que corresponde a cada cuenta) reconcilia
+// exactamente con la variación real del efectivo; ver `cuadra` en el
+// resultado.
+
+export interface MovimientoFlujo {
+  codigo: string
+  nombre: string
+  monto: number
+}
+
+export interface FlujoEfectivo {
+  utilidadNeta: number
+  ajustesNoMonetarios: MovimientoFlujo[] // depreciación, ajuste por inflación, resultados acumulados
+  totalAjustesNoMonetarios: number
+  cambiosCapitalTrabajo: MovimientoFlujo[] // CxC, inventario, CxP, impuestos por pagar, etc.
+  totalCambiosCapitalTrabajo: number
+  efectivoOperacion: number
+  inversion: MovimientoFlujo[] // compra/venta de activos fijos
+  efectivoInversion: number
+  financiamiento: MovimientoFlujo[] // capital social, préstamos (pasivo no corriente)
+  efectivoFinanciamiento: number
+  variacionNetaEfectivo: number
+  efectivoInicial: number
+  efectivoFinal: number
+  cuadra: boolean
+  diferencia: number
+}
+
+export async function generarFlujoEfectivo(empresaId: string, desde: Date, hasta: Date): Promise<FlujoEfectivo> {
+  const inicioAno = new Date(desde.getFullYear(), 0, 1)
+  const fechaCorteInicial = new Date(desde.getTime() - 1) // instante anterior a "desde"
+
+  const [saldosInicio, saldosFin, estadoResultado] = await Promise.all([
+    obtenerSaldosCuentas(empresaId, inicioAno, fechaCorteInicial),
+    obtenerSaldosCuentas(empresaId, inicioAno, hasta),
+    generarEstadoResultado(empresaId, desde, hasta),
+  ])
+
+  const mapaInicio = new Map(saldosInicio.map((s) => [s.codigo, s]))
+  const codigos = new Set([...saldosInicio.map((s) => s.codigo), ...saldosFin.map((s) => s.codigo)])
+
+  const ajustesNoMonetarios: MovimientoFlujo[] = []
+  const cambiosCapitalTrabajo: MovimientoFlujo[] = []
+  const inversion: MovimientoFlujo[] = []
+  const financiamiento: MovimientoFlujo[] = []
+  let efectivoInicial = 0
+  let efectivoFinal = 0
+
+  for (const codigo of codigos) {
+    const cuenta = saldosFin.find((s) => s.codigo === codigo) || mapaInicio.get(codigo)
+    if (!cuenta) continue
+    const inicio = mapaInicio.get(codigo)?.saldo || 0
+    const fin = saldosFin.find((s) => s.codigo === codigo)?.saldo || 0
+    const delta = fin - inicio
+
+    if (cuenta.uso && USOS_EFECTIVO.includes(cuenta.uso)) {
+      efectivoInicial += inicio
+      efectivoFinal += fin
+      continue
+    }
+    if (cuenta.tipo === 'INGRESO' || cuenta.tipo === 'COSTO' || cuenta.tipo === 'GASTO') continue // ya está en utilidadNeta
+    if (Math.abs(delta) < 0.01) continue
+
+    if (cuenta.tipo === 'ACTIVO' && cuenta.codigo.startsWith('1.1')) {
+      // Activo corriente no monetario (CxC, inventario, IVA crédito, etc.)
+      cambiosCapitalTrabajo.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: -delta })
+    } else if (cuenta.tipo === 'ACTIVO' && cuenta.codigo.startsWith('1.2')) {
+      if (cuenta.uso === 'DEP_ACUMULADA' || cuenta.naturaleza === 'ACREEDORA') {
+        // Contra-activo: la depreciación acumulada es un gasto no monetario ya restado en utilidadNeta
+        ajustesNoMonetarios.push({ codigo: cuenta.codigo, nombre: `Depreciación del período (${cuenta.nombre})`, monto: delta })
+      } else {
+        inversion.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: -delta })
+      }
+    } else if (cuenta.tipo === 'PASIVO' && cuenta.codigo.startsWith('2.1')) {
+      cambiosCapitalTrabajo.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: delta })
+    } else if (cuenta.tipo === 'PASIVO' && cuenta.codigo.startsWith('2.2')) {
+      financiamiento.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: delta })
+    } else if (cuenta.tipo === 'PATRIMONIO' && cuenta.uso === 'CAPITAL_SOCIAL') {
+      financiamiento.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: delta })
+    } else if (cuenta.tipo === 'PATRIMONIO') {
+      // Ajuste por inflación / resultados acumulados de cierres anteriores: partidas no monetarias
+      ajustesNoMonetarios.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: delta })
+    }
+  }
+
+  const totalAjustesNoMonetarios = ajustesNoMonetarios.reduce((s, m) => s + m.monto, 0)
+  const totalCambiosCapitalTrabajo = cambiosCapitalTrabajo.reduce((s, m) => s + m.monto, 0)
+  const efectivoOperacion = estadoResultado.utilidadNeta + totalAjustesNoMonetarios + totalCambiosCapitalTrabajo
+  const efectivoInversion = inversion.reduce((s, m) => s + m.monto, 0)
+  const efectivoFinanciamiento = financiamiento.reduce((s, m) => s + m.monto, 0)
+  const variacionNetaEfectivo = efectivoOperacion + efectivoInversion + efectivoFinanciamiento
+
+  const efectivoFinalCalculado = efectivoInicial + variacionNetaEfectivo
+  const diferencia = efectivoFinal - efectivoFinalCalculado
+  const cuadra = Math.abs(diferencia) < 0.05
+
+  return {
+    utilidadNeta: estadoResultado.utilidadNeta,
+    ajustesNoMonetarios, totalAjustesNoMonetarios,
+    cambiosCapitalTrabajo, totalCambiosCapitalTrabajo,
+    efectivoOperacion,
+    inversion, efectivoInversion,
+    financiamiento, efectivoFinanciamiento,
+    variacionNetaEfectivo,
+    efectivoInicial, efectivoFinal,
+    cuadra, diferencia,
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  ESTADO DE CAMBIOS EN EL PATRIMONIO
+// ───────────────────────────────────────────────────────────────────────
+
+export interface CambiosPatrimonio {
+  capitalSocialInicial: number
+  aportesCapital: number
+  capitalSocialFinal: number
+  resultadosAcumuladosInicial: number
+  resultadoDelPeriodo: number
+  resultadosAcumuladosFinal: number
+  ajusteInflacionInicial: number
+  ajusteInflacionDelPeriodo: number
+  ajusteInflacionFinal: number
+  patrimonioInicial: number
+  patrimonioFinal: number
+  cuadra: boolean
+  diferencia: number
+}
+
+export async function generarCambiosPatrimonio(empresaId: string, desde: Date, hasta: Date): Promise<CambiosPatrimonio> {
+  const inicioAno = new Date(desde.getFullYear(), 0, 1)
+  const fechaCorteInicial = new Date(desde.getTime() - 1)
+
+  const [saldosInicio, saldosFin, estadoResultado] = await Promise.all([
+    obtenerSaldosCuentas(empresaId, inicioAno, fechaCorteInicial),
+    obtenerSaldosCuentas(empresaId, inicioAno, hasta),
+    generarEstadoResultado(empresaId, desde, hasta),
+  ])
+
+  const sumaUso = (saldos: CuentaSaldo[], usos: string[]) =>
+    saldos.filter((s) => s.uso && usos.includes(s.uso)).reduce((sum, s) => sum + s.saldo, 0)
+
+  const capitalSocialInicial = sumaUso(saldosInicio, ['CAPITAL_SOCIAL'])
+  const capitalSocialFinal = sumaUso(saldosFin, ['CAPITAL_SOCIAL'])
+  const aportesCapital = capitalSocialFinal - capitalSocialInicial
+
+  const resultadosAcumuladosInicial = sumaUso(saldosInicio, ['UTILIDAD_EJERCICIO', 'PERDIDA_EJERCICIO'])
+  const resultadosAcumuladosFinalSinPeriodo = sumaUso(saldosFin, ['UTILIDAD_EJERCICIO', 'PERDIDA_EJERCICIO'])
+  const resultadoDelPeriodo = estadoResultado.utilidadNeta
+  const resultadosAcumuladosFinal = resultadosAcumuladosFinalSinPeriodo + resultadoDelPeriodo
+
+  const ajusteInflacionInicial = sumaUso(saldosInicio, ['AJUSTE_INFLACION_PATRIMONIO'])
+  const ajusteInflacionFinal = sumaUso(saldosFin, ['AJUSTE_INFLACION_PATRIMONIO'])
+  const ajusteInflacionDelPeriodo = ajusteInflacionFinal - ajusteInflacionInicial
+
+  const patrimonioInicial = capitalSocialInicial + resultadosAcumuladosInicial + ajusteInflacionInicial
+  const patrimonioFinal = capitalSocialFinal + resultadosAcumuladosFinal + ajusteInflacionFinal
+
+  // Verificación: el patrimonio final calculado debe coincidir con el que
+  // arroja el Balance General (totalPatrimonio + resultado del ejercicio a "hasta")
+  const totalPatrimonioBalanceFin = saldosFin.filter((s) => s.tipo === 'PATRIMONIO').reduce((s, c) => s + c.saldo, 0)
+  const diferencia = patrimonioFinal - (totalPatrimonioBalanceFin + resultadoDelPeriodo)
+  const cuadra = Math.abs(diferencia) < 0.05
+
+  return {
+    capitalSocialInicial, aportesCapital, capitalSocialFinal,
+    resultadosAcumuladosInicial, resultadoDelPeriodo, resultadosAcumuladosFinal,
+    ajusteInflacionInicial, ajusteInflacionDelPeriodo, ajusteInflacionFinal,
+    patrimonioInicial, patrimonioFinal,
+    cuadra, diferencia,
   }
 }
