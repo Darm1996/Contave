@@ -28,6 +28,8 @@ export type TabKey =
   | 'nomina'
   | 'activos-fijos'
   | 'vencimientos-fiscales'
+  | 'productos'
+  | 'inventario'
 
 interface UserState {
   id: string

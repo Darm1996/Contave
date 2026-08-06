@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw, Package, Users, FileWarning, CalendarClock } from 'lucide-react'
+import { TrendingUp, TrendingDown, Receipt, Calculator, DollarSign, Wallet, RefreshCw, Package, Users, FileWarning, CalendarClock, Warehouse } from 'lucide-react'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { useApp, apiFetch } from '@/lib/store'
 import { ComprasVentasChart } from './dashboard-chart'
@@ -29,6 +29,7 @@ interface DashboardData {
   activosFijos: { cantidad: number; valorLibro: number }
   nominaMes: { totalNeto: number; estado: string } | null
   ajusteInflacionMes: { resultadoExposicionInflacion: number } | null
+  inventario: { cantidadProductos: number; valorizacion: number }
 }
 
 interface Vencimiento {
@@ -204,7 +205,17 @@ export function Dashboard() {
       {/* KPIs de módulos nuevos */}
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Otros módulos</h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          <Card className="border-l-4 border-l-indigo-500">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
+              <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">Inventario</CardTitle>
+              <Warehouse className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+            </CardHeader>
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="text-lg sm:text-2xl font-bold text-slate-800 dark:text-slate-100">{formatBs(data.inventario.valorizacion)}</div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{data.inventario.cantidadProductos} producto(s)</p>
+            </CardContent>
+          </Card>
           <Card className="border-l-4 border-l-red-500">
             <CardHeader className="flex flex-row items-center justify-between pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
               <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">IGTF pagado</CardTitle>

@@ -72,6 +72,7 @@ model Empresa {
   empleados           Empleado[]
   nominas             Nomina[]
   activosFijos        ActivoFijo[]
+  productos           Producto[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -467,4 +468,46 @@ model MovimientoDepreciacion {
   createdAt        DateTime   @default(now())
 
   @@unique([activoFijoId, mes, ano])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  INVENTARIO / KARDEX (costeo promedio ponderado)
+// ───────────────────────────────────────────────────────────────────────
+
+model Producto {
+  id                  String   @id @default(cuid())
+  empresaId           String
+  codigo              String
+  nombre              String
+  descripcion         String?
+  unidadMedida        String   @default("UND")
+  cuentaInventarioId  String
+  costoPromedioActual Float    @default(0)
+  cantidadActual      Float    @default(0)
+  activo              Boolean  @default(true)
+  empresa             Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  movimientos         MovimientoInventario[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([empresaId, codigo])
+}
+
+model MovimientoInventario {
+  id                  String   @id @default(cuid())
+  productoId          String
+  tipo                String // ENTRADA | SALIDA | AJUSTE
+  cantidad            Float
+  costoUnitario       Float
+  costoTotal          Float
+  cantidadSaldo       Float
+  costoPromedioSaldo  Float
+  facturaId           String?
+  motivo              String?
+  asientoId           String?
+  fecha               DateTime @default(now())
+  producto            Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+
+  @@index([productoId, fecha])
 }
