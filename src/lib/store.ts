@@ -39,6 +39,7 @@ export type TabKey =
   | 'actas-asamblea'
   | 'declaracion-islr-anual'
   | 'auditoria'
+  | 'notificaciones'
 
 interface UserState {
   id: string
