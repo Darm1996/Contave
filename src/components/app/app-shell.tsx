@@ -34,6 +34,7 @@ import { Inventario } from './inventario'
 import { CuentasPorCobrar, CuentasPorPagar } from './cuentas-por-cobrar-pagar'
 import { Vacaciones, Liquidaciones } from './nomina-lottt'
 import { Equipo } from './equipo'
+import { Accionistas, ActasAsamblea } from './societario'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -43,7 +44,7 @@ import {
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
-  Wallet, HandCoins, TreePalm, UserMinus, UsersRound,
+  Wallet, HandCoins, TreePalm, UserMinus, UsersRound, Gavel,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -75,6 +76,8 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'nomina', label: 'Procesar Nómina', icon: FileSpreadsheet },
   { key: 'vacaciones', label: 'Vacaciones', icon: TreePalm },
   { key: 'liquidaciones', label: 'Liquidación de Personal', icon: UserMinus },
+  { key: 'accionistas', label: 'Accionistas', icon: Landmark, section: 'Societario' },
+  { key: 'actas-asamblea', label: 'Libro de Actas', icon: Gavel },
   { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
   { key: 'empresas', label: 'Empresas', icon: Building2 },
   { key: 'equipo', label: 'Equipo', icon: UsersRound },
@@ -269,6 +272,8 @@ export function AppShell() {
           {tab === 'vacaciones' && <Vacaciones />}
           {tab === 'liquidaciones' && <Liquidaciones />}
           {tab === 'equipo' && <Equipo />}
+          {tab === 'accionistas' && <Accionistas />}
+          {tab === 'actas-asamblea' && <ActasAsamblea />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}
           {tab === 'mayor' && <LibroMayor />}

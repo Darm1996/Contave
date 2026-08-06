@@ -35,6 +35,8 @@ export type TabKey =
   | 'vacaciones'
   | 'liquidaciones'
   | 'equipo'
+  | 'accionistas'
+  | 'actas-asamblea'
 
 interface UserState {
   id: string

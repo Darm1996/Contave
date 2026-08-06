@@ -81,6 +81,8 @@ model Empresa {
   pagos                   Pago[]
   vacaciones              Vacacion[]
   liquidaciones           Liquidacion[]
+  accionistas             Accionista[]
+  actasAsamblea           ActaAsamblea[]
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
 }
@@ -601,4 +603,43 @@ model MovimientoInventario {
   createdAt          DateTime @default(now())
 
   @@index([productoId, fecha])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  LIBRO DE ACCIONISTAS Y LIBRO DE ACTAS (registro societario, Código de Comercio)
+// ───────────────────────────────────────────────────────────────────────
+
+model Accionista {
+  id             String   @id @default(cuid())
+  empresaId      String
+  nombre         String
+  identificacion String // cédula o RIF
+  numeroAcciones Float
+  fechaIngreso   DateTime @default(now())
+  activo         Boolean  @default(true)
+  empresa        Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([empresaId, identificacion])
+}
+
+// Correlativo de actas por empresa. accionesRepresentadas se usa junto con
+// el total de acciones vigente (suma de Accionista.numeroAcciones activos)
+// para calcular el quórum de la asamblea.
+model ActaAsamblea {
+  id                    String   @id @default(cuid())
+  empresaId             String
+  numero                Int
+  fecha                 DateTime
+  tipo                  String // ORDINARIA | EXTRAORDINARIA
+  lugar                 String?
+  agenda                String
+  acuerdos              String
+  asistentes            String // texto libre: nombres de accionistas/representantes presentes
+  accionesRepresentadas Float    @default(0)
+  empresa               Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt             DateTime @default(now())
+
+  @@unique([empresaId, numero])
 }
