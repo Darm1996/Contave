@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { TableScrollHint } from '@/components/ui/table-scroll-hint'
-import { RefreshCw, Download } from 'lucide-react'
+import { RefreshCw, Download, FileText } from 'lucide-react'
 
 interface Fila {
   fecha: string
@@ -112,10 +112,18 @@ export function LibroVentas() {
           <p className="text-sm text-slate-500 dark:text-slate-400">
             Formato SENIAT - Providencia SNAT/2018/000078 · {totales?.cantidadOperaciones || 0} operación(es)
           </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            El TXT sigue el formato estándar más usado para el Libro de Ventas digital. Verifica el instructivo vigente del portal SENIAT antes de cargarlo.
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
           <Button variant="outline" size="sm" onClick={exportar}><Download className="w-4 h-4 mr-1" /> Exportar Excel</Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/api/libro-ventas/txt?${new URLSearchParams({ ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}) })}`} target="_blank" rel="noopener noreferrer">
+              <FileText className="w-4 h-4 mr-1" /> TXT SENIAT
+            </a>
+          </Button>
         </div>
       </div>
 
