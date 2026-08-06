@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { apiFetch } from '@/lib/store'
+import { apiFetch, useApp } from '@/lib/store'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
 import { TableScrollHint } from '@/components/ui/table-scroll-hint'
@@ -31,6 +31,8 @@ interface NominaCompleta extends NominaListItem {
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 export function Nomina() {
+  const { user, empresaActiva } = useApp()
+  const puedeProcesar = empresaActiva?.rol === 'ADMIN' || empresaActiva?.rol === 'CONTADOR' || user?.role === 'SUPER_ADMIN'
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [nominas, setNominas] = useState<NominaListItem[]>([])
   const [detalle, setDetalle] = useState<NominaCompleta | null>(null)
@@ -134,9 +136,11 @@ export function Nomina() {
                 {[2024, 2025, 2026, 2027].map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
-            <Button onClick={procesar} disabled={procesando || empleados.length === 0}>
-              {procesando && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} Procesar nómina
-            </Button>
+            {puedeProcesar && (
+              <Button onClick={procesar} disabled={procesando || empleados.length === 0}>
+                {procesando && <Loader2 className="w-4 h-4 mr-1 animate-spin" />} Procesar nómina
+              </Button>
+            )}
           </div>
 
           <TableScrollHint />

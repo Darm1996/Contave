@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { apiFetch } from '@/lib/store'
+import { apiFetch, useApp } from '@/lib/store'
 import { toast } from 'sonner'
 import { TreePalm, UserMinus, Loader2, RefreshCw } from 'lucide-react'
 
@@ -22,6 +22,11 @@ const MOTIVOS = [
   { value: 'DESPIDO_INJUSTIFICADO', label: 'Despido injustificado' },
   { value: 'MUTUO_ACUERDO', label: 'Mutuo acuerdo' },
 ]
+
+function usePuedeGestionarNomina() {
+  const { user, empresaActiva } = useApp()
+  return empresaActiva?.rol === 'ADMIN' || empresaActiva?.rol === 'CONTADOR' || user?.role === 'SUPER_ADMIN'
+}
 
 function useCuentasBanco() {
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
@@ -41,6 +46,7 @@ export function Vacaciones() {
   const [loading, setLoading] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const cuentas = useCuentasBanco()
+  const puedeGestionar = usePuedeGestionarNomina()
   const [form, setForm] = useState({ fechaInicio: new Date().toISOString().slice(0, 10), fechaFin: '', diasDisfrutados: '15', generarAsiento: true, cuentaId: '' })
 
   useEffect(() => {
@@ -111,30 +117,32 @@ export function Vacaciones() {
         </div>
       )}
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Registrar disfrute de vacaciones</CardTitle></CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-          <div><Label>Fecha inicio</Label><Input type="date" value={form.fechaInicio} onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })} /></div>
-          <div><Label>Fecha fin</Label><Input type="date" value={form.fechaFin} onChange={(e) => setForm({ ...form, fechaFin: e.target.value })} /></div>
-          <div><Label>Días disfrutados</Label><Input type="number" value={form.diasDisfrutados} onChange={(e) => setForm({ ...form, diasDisfrutados: e.target.value })} /></div>
-          <div className="flex items-center gap-1">
-            <input type="checkbox" checked={form.generarAsiento} onChange={(e) => setForm({ ...form, generarAsiento: e.target.checked })} />
-            <Label className="text-sm">Generar asiento</Label>
-          </div>
-          {form.generarAsiento && (
-            <div className="col-span-2 md:col-span-4">
-              <Label>Cuenta banco/caja</Label>
-              <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm" value={form.cuentaId} onChange={(e) => setForm({ ...form, cuentaId: e.target.value })}>
-                <option value="">Selecciona...</option>
-                {cuentas.map((c) => <option key={c.id} value={c.id}>{c.codigo} {c.nombre}</option>)}
-              </select>
+      {puedeGestionar && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Registrar disfrute de vacaciones</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+            <div><Label>Fecha inicio</Label><Input type="date" value={form.fechaInicio} onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })} /></div>
+            <div><Label>Fecha fin</Label><Input type="date" value={form.fechaFin} onChange={(e) => setForm({ ...form, fechaFin: e.target.value })} /></div>
+            <div><Label>Días disfrutados</Label><Input type="number" value={form.diasDisfrutados} onChange={(e) => setForm({ ...form, diasDisfrutados: e.target.value })} /></div>
+            <div className="flex items-center gap-1">
+              <input type="checkbox" checked={form.generarAsiento} onChange={(e) => setForm({ ...form, generarAsiento: e.target.checked })} />
+              <Label className="text-sm">Generar asiento</Label>
             </div>
-          )}
-          <div className="col-span-2 md:col-span-4">
-            <Button onClick={registrar} disabled={guardando || !empleadoId}>{guardando && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}Registrar vacaciones</Button>
-          </div>
-        </CardContent>
-      </Card>
+            {form.generarAsiento && (
+              <div className="col-span-2 md:col-span-4">
+                <Label>Cuenta banco/caja</Label>
+                <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm" value={form.cuentaId} onChange={(e) => setForm({ ...form, cuentaId: e.target.value })}>
+                  <option value="">Selecciona...</option>
+                  {cuentas.map((c) => <option key={c.id} value={c.id}>{c.codigo} {c.nombre}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="col-span-2 md:col-span-4">
+              <Button onClick={registrar} disabled={guardando || !empleadoId}>{guardando && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}Registrar vacaciones</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <TableScrollHint />
@@ -192,6 +200,7 @@ export function Liquidaciones() {
   const [guardando, setGuardando] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const cuentas = useCuentasBanco()
+  const puedeGestionar = usePuedeGestionarNomina()
   const [form, setForm] = useState({ empleadoId: '', fechaEgreso: new Date().toISOString().slice(0, 10), motivoEgreso: 'RENUNCIA', generarAsiento: true, cuentaId: '' })
 
   async function cargar() {
@@ -232,11 +241,11 @@ export function Liquidaciones() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={cargar}><RefreshCw className="w-4 h-4 mr-1" /> Actualizar</Button>
-          <Button size="sm" onClick={() => setShowForm(!showForm)}>Nueva liquidación</Button>
+          {puedeGestionar && <Button size="sm" onClick={() => setShowForm(!showForm)}>Nueva liquidación</Button>}
         </div>
       </div>
 
-      {showForm && (
+      {showForm && puedeGestionar && (
         <Card>
           <CardHeader><CardTitle className="text-base">Procesar liquidación</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">

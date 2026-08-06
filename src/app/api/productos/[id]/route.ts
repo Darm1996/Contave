@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { requireEmpresa } from '@/lib/auth'
+import { requireEmpresaRole } from '@/lib/auth'
 import { desactivarProducto } from '@/lib/contabilidad/inventario'
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const empresaId = await requireEmpresa()
+    const { empresaId } = await requireEmpresaRole('CONTADOR')
     const { id } = await params
     const producto = await desactivarProducto(empresaId, id)
     return NextResponse.json({ producto })

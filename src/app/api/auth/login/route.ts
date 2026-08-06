@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     })
     return NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
-      empresaActiva: userEmp?.empresa || null,
+      empresaActiva: userEmp ? { ...userEmp.empresa, rol: userEmp.rol } : null,
     })
   } catch (e: any) {
     console.error('Login error:', e)
