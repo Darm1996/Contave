@@ -203,6 +203,16 @@ export async function procesarNomina(empresaId: string, mes: number, ano: number
     include: { detalles: { include: { empleado: true } } },
   })
 
+  // Acumular la garantía de prestaciones sociales del período (LOTTT Art. 142
+  // lit. a) en cada empleado, para compararla contra el cálculo retroactivo
+  // al momento de la liquidación final.
+  await Promise.all(detalles.map((d) =>
+    db.empleado.update({
+      where: { id: d.empleadoId },
+      data: { prestacionesAcumuladas: { increment: d.provisionPrestaciones } },
+    }),
+  ))
+
   return nomina
 }
 

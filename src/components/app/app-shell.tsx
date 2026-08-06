@@ -32,6 +32,7 @@ import { VencimientosFiscales } from './vencimientos-fiscales'
 import { Productos } from './productos'
 import { Inventario } from './inventario'
 import { CuentasPorCobrar, CuentasPorPagar } from './cuentas-por-cobrar-pagar'
+import { Vacaciones, Liquidaciones } from './nomina-lottt'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -41,7 +42,7 @@ import {
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
-  Wallet, HandCoins,
+  Wallet, HandCoins, TreePalm, UserMinus,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -71,6 +72,8 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'activos-fijos', label: 'Activos Fijos', icon: Package, section: 'Activos Fijos' },
   { key: 'empleados', label: 'Empleados', icon: Users, section: 'Nómina' },
   { key: 'nomina', label: 'Procesar Nómina', icon: FileSpreadsheet },
+  { key: 'vacaciones', label: 'Vacaciones', icon: TreePalm },
+  { key: 'liquidaciones', label: 'Liquidación de Personal', icon: UserMinus },
   { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
   { key: 'empresas', label: 'Empresas', icon: Building2 },
   { key: 'configuracion', label: 'Configuración', icon: Settings },
@@ -258,6 +261,8 @@ export function AppShell() {
           {tab === 'inventario' && <Inventario />}
           {tab === 'cuentas-por-cobrar' && <CuentasPorCobrar />}
           {tab === 'cuentas-por-pagar' && <CuentasPorPagar />}
+          {tab === 'vacaciones' && <Vacaciones />}
+          {tab === 'liquidaciones' && <Liquidaciones />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}
           {tab === 'mayor' && <LibroMayor />}

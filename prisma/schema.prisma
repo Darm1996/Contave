@@ -79,6 +79,8 @@ model Empresa {
   activosFijos            ActivoFijo[]
   productos               Producto[]
   pagos                   Pago[]
+  vacaciones              Vacacion[]
+  liquidaciones           Liquidacion[]
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
 }
@@ -409,18 +411,25 @@ model AjusteInflacion {
 // ───────────────────────────────────────────────────────────────────────
 
 model Empleado {
-  id           String          @id @default(cuid())
-  empresaId    String
-  cedula       String
-  nombre       String
-  cargo        String?
-  fechaIngreso DateTime
-  salarioBase  Float
-  activo       Boolean         @default(true)
-  empresa      Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  detalles     NominaDetalle[]
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id                     String          @id @default(cuid())
+  empresaId              String
+  cedula                 String
+  nombre                 String
+  cargo                  String?
+  fechaIngreso           DateTime
+  salarioBase            Float
+  activo                 Boolean         @default(true)
+  // LOTTT: egreso y garantía de prestaciones sociales acumulada mes a mes
+  // (Art. 142 lit. a) — se compara contra el cálculo retroactivo (lit. c) al liquidar.
+  fechaEgreso            DateTime?
+  motivoEgreso           String? // RENUNCIA | DESPIDO_JUSTIFICADO | DESPIDO_INJUSTIFICADO | MUTUO_ACUERDO
+  prestacionesAcumuladas Float           @default(0)
+  empresa                Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  detalles               NominaDetalle[]
+  vacaciones             Vacacion[]
+  liquidacion            Liquidacion?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   @@unique([empresaId, cedula])
 }
@@ -469,6 +478,49 @@ model NominaDetalle {
 
   @@unique([nominaId, empleadoId])
   @@index([nominaId])
+}
+
+// Vacaciones disfrutadas (LOTTT Art. 190-192): 15 días de disfrute + 1 día
+// adicional por cada año de servicio a partir del segundo (máx. 15
+// adicionales), y bono vacacional con el mismo esquema de días.
+model Vacacion {
+  id                  String   @id @default(cuid())
+  empresaId           String
+  empleadoId          String
+  fechaInicio         DateTime
+  fechaFin            DateTime
+  diasDisfrutados     Float
+  montoVacaciones     Float
+  montoBonoVacacional Float
+  asientoId           String?  @unique
+  empresa             Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empleado            Empleado @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+
+  @@index([empleadoId])
+}
+
+// Liquidación final de un empleado (LOTTT Art. 142 y 92). Un solo registro
+// por empleado (no se permite re-liquidar).
+model Liquidacion {
+  id                        String   @id @default(cuid())
+  empresaId                 String
+  empleadoId                String   @unique
+  fechaEgreso               DateTime
+  motivoEgreso              String
+  aniosServicio             Float
+  salarioIntegralDiario     Float
+  prestacionesSociales      Float
+  vacacionesVencidas        Float
+  vacacionesFraccionadas    Float
+  bonoVacacionalFraccionado Float
+  utilidadesFraccionadas    Float
+  indemnizacionDespido      Float    @default(0)
+  totalLiquidacion          Float
+  asientoId                 String?  @unique
+  empresa                   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empleado                  Empleado @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+  createdAt                 DateTime @default(now())
 }
 
 // ───────────────────────────────────────────────────────────────────────
