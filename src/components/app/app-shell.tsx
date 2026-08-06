@@ -37,6 +37,7 @@ import { Equipo } from './equipo'
 import { Accionistas, ActasAsamblea } from './societario'
 import { DeclaracionISLRAnual } from './declaracion-islr-anual'
 import { Auditoria } from './auditoria'
+import { Notificaciones } from './notificaciones'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -46,13 +47,14 @@ import {
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
-  Wallet, HandCoins, TreePalm, UserMinus, UsersRound, Gavel, ShieldAlert,
+  Wallet, HandCoins, TreePalm, UserMinus, UsersRound, Gavel, ShieldAlert, Mail,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
 const NAV: Array<{ key: any; label: string; icon: any; section?: string; adminOnly?: boolean }> = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Principal' },
   { key: 'vencimientos-fiscales', label: 'Calendario Fiscal', icon: CalendarClock },
+  { key: 'notificaciones', label: 'Notificaciones', icon: Mail },
   { key: 'escaner', label: 'Escanear Factura', icon: ScanLine, section: 'Operación' },
   { key: 'facturar', label: 'Facturar Venta', icon: FilePlus },
   { key: 'clientes', label: 'Clientes', icon: Contact },
@@ -293,6 +295,7 @@ export function AppShell() {
           {tab === 'reporte-islr' && <ReporteISLR />}
           {tab === 'declaracion-islr-anual' && <DeclaracionISLRAnual />}
           {tab === 'auditoria' && <Auditoria />}
+          {tab === 'notificaciones' && <Notificaciones />}
           {tab === 'cuentas' && <PlanCuentas />}
           {tab === 'activos-fijos' && <ActivosFijos />}
           {tab === 'declaracion-igtf' && <DeclaracionIGTF />}

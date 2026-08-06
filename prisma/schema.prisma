@@ -84,6 +84,7 @@ model Empresa {
   accionistas             Accionista[]
   actasAsamblea           ActaAsamblea[]
   auditLogs               AuditLog[]
+  notificaciones          Notificacion[]
   createdAt               DateTime             @default(now())
   updatedAt               DateTime             @updatedAt
 }
@@ -666,4 +667,30 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([empresaId, createdAt])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  NOTIFICACIONES POR EMAIL
+// ───────────────────────────────────────────────────────────────────────
+
+// Cola de notificaciones (vencimientos fiscales próximos, facturas por
+// cobrar vencidas). El envío real requiere configurar RESEND_API_KEY como
+// variable de entorno — sin eso, quedan generadas pero en estado ERROR con
+// un mensaje explicando qué falta. entidadId se usa para no duplicar el
+// aviso de un mismo vencimiento/factura ya notificado.
+model Notificacion {
+  id           String    @id @default(cuid())
+  empresaId    String
+  tipo         String // VENCIMIENTO_FISCAL | CXC_VENCIDA
+  destinatario String
+  asunto       String
+  cuerpo       String
+  entidadId    String?
+  estado       String    @default("PENDIENTE") // PENDIENTE | ENVIADA | ERROR
+  errorMensaje String?
+  enviadaAt    DateTime?
+  empresa      Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+
+  @@index([empresaId, estado])
 }
