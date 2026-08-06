@@ -105,6 +105,8 @@ export const CUENTAS_VEN_NIF: CuentaPlanVenNif[] = [
   { codigo: '6.1.14', nombre: 'Provisión de Prestaciones Sociales', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'GASTO_PRESTACIONES' },
   { codigo: '6.1.15', nombre: 'Provisión de Utilidades', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'GASTO_UTILIDADES' },
   { codigo: '6.1.16', nombre: 'Gasto de Depreciación', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'GASTO_DEPRECIACION' },
+  { codigo: '6.1.17', nombre: 'Gasto de Vacaciones y Bono Vacacional', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'GASTO_VACACIONES' },
+  { codigo: '6.1.18', nombre: 'Gasto de Liquidación de Personal', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'GASTO_LIQUIDACION' },
   { codigo: '6.2', nombre: 'Gastos No Operacionales', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 2, imputable: false },
   { codigo: '6.2.01', nombre: 'Pérdida en Cambio', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'PERDIDA_CAMBIO' },
   { codigo: '6.2.02', nombre: 'Gastos Financieros', tipo: 'GASTO', naturaleza: 'DEUDORA', nivel: 3, uso: 'GASTO_FINANCIERO' },
