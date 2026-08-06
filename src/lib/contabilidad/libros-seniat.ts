@@ -200,6 +200,86 @@ export function totalesLibroCompras(filas: FilaLibroCompras[]) {
   }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+//  EXPORTACIÓN TXT PARA CARGA EN EL PORTAL SENIAT
+// ───────────────────────────────────────────────────────────────────────
+// Formato delimitado por "|" (pipe), un registro por línea, siguiendo la
+// estructura de campos del Libro de Compras/Ventas Digital que exige la
+// Providencia SNAT/2018/000078 y que replican la mayoría de los sistemas
+// administrativos venezolanos (SAINT, Profit Plus, Aristos, etc.).
+//
+// IMPORTANTE: el portal SENIAT actualiza periódicamente su instructivo de
+// carga (delimitador, orden de columnas, códigos de tipo de transacción).
+// Verifica el archivo generado contra el instructivo vigente en el portal
+// antes de cargarlo — este formato es el estándar de facto más usado, no
+// una copia certificada del layout oficial.
+
+const fmtFechaSeniat = (d: Date) => {
+  const dt = new Date(d)
+  const dd = String(dt.getDate()).padStart(2, '0')
+  const mm = String(dt.getMonth() + 1).padStart(2, '0')
+  return `${dd}/${mm}/${dt.getFullYear()}`
+}
+const fmtMontoSeniat = (n: number) => (n || 0).toFixed(2)
+const soloDigitosRif = (rif: string) => (rif || '').toUpperCase().trim()
+
+const CODIGO_TIPO_COMPRA: Record<string, string> = {
+  COMPRA: '01',
+  GASTO_MENOR: '01',
+  NOTA_DEBITO: '05',
+  NOTA_CREDITO: '06',
+}
+const CODIGO_TIPO_VENTA: Record<string, string> = {
+  VENTA: '01',
+  NOTA_DEBITO: '05',
+  NOTA_CREDITO: '06',
+}
+
+export function generarTXTLibroCompras(filas: FilaLibroCompras[]): string {
+  const lineas = filas.map((f) => [
+    soloDigitosRif(f.rifProveedor),
+    f.nombreProveedor,
+    CODIGO_TIPO_COMPRA[f.tipoOperacion] || '01',
+    fmtFechaSeniat(f.fecha),
+    f.numeroFactura,
+    f.numeroControl,
+    f.ncf,
+    fmtMontoSeniat(f.totalCompraIncluyendoIVA),
+    fmtMontoSeniat(f.comprasSinCreditoFiscal),
+    fmtMontoSeniat(f.baseImponible16),
+    fmtMontoSeniat(f.iva16),
+    fmtMontoSeniat(f.baseImponible8),
+    fmtMontoSeniat(f.iva8),
+    fmtMontoSeniat(f.baseImponible0),
+    fmtMontoSeniat(f.iva0),
+    fmtMontoSeniat(f.ivaRetenido || 0),
+    fmtMontoSeniat(f.islrRetenido || 0),
+  ].join('|'))
+  return lineas.join('\r\n') + (lineas.length ? '\r\n' : '')
+}
+
+export function generarTXTLibroVentas(filas: FilaLibroVentas[]): string {
+  const lineas = filas.map((f) => [
+    soloDigitosRif(f.rifCliente),
+    f.nombreCliente,
+    CODIGO_TIPO_VENTA[f.tipoOperacion] || '01',
+    fmtFechaSeniat(f.fecha),
+    f.numeroFactura,
+    f.numeroControl,
+    f.ncf,
+    fmtMontoSeniat(f.totalVentaIncluyendoIVA),
+    fmtMontoSeniat(f.ventasExentas + f.ventasExoneradas + f.ventasNoGravadas),
+    fmtMontoSeniat(f.baseImponible16),
+    fmtMontoSeniat(f.iva16),
+    fmtMontoSeniat(f.baseImponible8),
+    fmtMontoSeniat(f.iva8),
+    fmtMontoSeniat(f.baseImponible0),
+    fmtMontoSeniat(f.iva0),
+    fmtMontoSeniat(f.ivaRetenido || 0),
+  ].join('|'))
+  return lineas.join('\r\n') + (lineas.length ? '\r\n' : '')
+}
+
 // Calcular totales del libro de ventas
 export function totalesLibroVentas(filas: FilaLibroVentas[]) {
   return {
