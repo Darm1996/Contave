@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { TableScrollHint } from '@/components/ui/table-scroll-hint'
 import { formatBs } from '@/lib/contabilidad/ven-nif'
-import { apiFetch } from '@/lib/store'
+import { apiFetch, useApp } from '@/lib/store'
 import { exportarExcelCliente } from '@/lib/exports/cliente'
 import { toast } from 'sonner'
 import { Wallet, Landmark, Download, Loader2, CircleDollarSign } from 'lucide-react'
@@ -39,6 +39,8 @@ function badgeVencido(dias: number) {
 }
 
 function CuentasPorCobrarPagar({ tipo }: { tipo: 'VENTA' | 'COMPRA' }) {
+  const { user, empresaActiva } = useApp()
+  const puedeRegistrarPago = empresaActiva?.rol === 'ADMIN' || empresaActiva?.rol === 'CONTADOR' || user?.role === 'SUPER_ADMIN'
   const [partidas, setPartidas] = useState<Partida[]>([])
   const [antiguedad, setAntiguedad] = useState<Antiguedad | null>(null)
   const [cuentas, setCuentas] = useState<Cuenta[]>([])
@@ -217,9 +219,11 @@ function CuentasPorCobrarPagar({ tipo }: { tipo: 'VENTA' | 'COMPRA' }) {
                   <td className="px-2 py-2 text-right font-mono">{formatBs(p.montoPagado)}</td>
                   <td className="px-2 py-2 text-right font-mono font-semibold">{formatBs(p.saldo)}</td>
                   <td className="px-2 py-2 text-center">
-                    <Button size="sm" variant={pagando === p.id ? 'secondary' : 'outline'} className="h-7 text-xs" onClick={() => pagando === p.id ? setPagando(null) : abrirPago(p)}>
-                      {tipo === 'VENTA' ? 'Registrar cobro' : 'Registrar pago'}
-                    </Button>
+                    {puedeRegistrarPago && (
+                      <Button size="sm" variant={pagando === p.id ? 'secondary' : 'outline'} className="h-7 text-xs" onClick={() => pagando === p.id ? setPagando(null) : abrirPago(p)}>
+                        {tipo === 'VENTA' ? 'Registrar cobro' : 'Registrar pago'}
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

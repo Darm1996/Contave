@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireEmpresa } from '@/lib/auth'
+import { requireEmpresa, requireEmpresaRole } from '@/lib/auth'
 import { registrarPago, historialPagos } from '@/lib/contabilidad/cuentas-por-cobrar-pagar'
 
 // GET /api/pagos?facturaId=... - historial de pagos de una factura
@@ -19,8 +19,7 @@ export async function GET(req: NextRequest) {
 // POST /api/pagos - Body: { facturaId, monto, fecha?, metodoPago, referencia?, cuentaId?, generarAsiento? }
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuth()
-    const empresaId = await requireEmpresa()
+    const { user, empresaId } = await requireEmpresaRole('CONTADOR')
     const body = await req.json()
     const pago = await registrarPago(empresaId, {
       ...body,

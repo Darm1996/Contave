@@ -34,6 +34,7 @@ export type TabKey =
   | 'cuentas-por-pagar'
   | 'vacaciones'
   | 'liquidaciones'
+  | 'equipo'
 
 interface UserState {
   id: string

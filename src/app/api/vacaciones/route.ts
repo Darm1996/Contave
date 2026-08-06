@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireEmpresa } from '@/lib/auth'
+import { requireEmpresa, requireEmpresaRole } from '@/lib/auth'
 import { registrarVacacion, listarVacaciones, resumenVacaciones } from '@/lib/contabilidad/nomina-lottt'
 
 // GET /api/vacaciones?empleadoId=... - historial + resumen de vacaciones pendientes
@@ -22,8 +22,7 @@ export async function GET(req: NextRequest) {
 // POST /api/vacaciones - Body: { empleadoId, fechaInicio, fechaFin, diasDisfrutados, generarAsiento?, cuentaId? }
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuth()
-    const empresaId = await requireEmpresa()
+    const { user, empresaId } = await requireEmpresaRole('CONTADOR')
     const body = await req.json()
     const vacacion = await registrarVacacion(empresaId, { ...body, userId: user.id })
     return NextResponse.json({ vacacion })

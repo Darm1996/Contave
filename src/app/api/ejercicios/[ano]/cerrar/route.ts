@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireEmpresa, requireAuth } from '@/lib/auth'
+import { requireEmpresaRole } from '@/lib/auth'
 import { cerrarEjercicio } from '@/lib/contabilidad/ejercicios'
 
 // POST /api/ejercicios/[ano]/cerrar
 export async function POST(req: NextRequest, { params }: { params: Promise<{ ano: string }> }) {
   try {
-    const empresaId = await requireEmpresa()
-    const user = await requireAuth()
+    const { user, empresaId } = await requireEmpresaRole('CONTADOR')
     const { ano: anoStr } = await params
     const ano = parseInt(anoStr)
     if (isNaN(ano)) return NextResponse.json({ error: 'Año inválido' }, { status: 400 })

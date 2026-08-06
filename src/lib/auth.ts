@@ -84,3 +84,28 @@ export async function requireEmpresa(): Promise<string> {
   if (!user.empresaId) throw new Error('Sin empresa activa')
   return user.empresaId
 }
+
+// Roles por empresa (UserEmpresa.rol), de menor a mayor privilegio. AUXILIAR
+// hace trabajo operativo diario (facturas, productos, conciliación);
+// CONTADOR además puede cerrar/reabrir ejercicios, procesar nómina y
+// registrar pagos; ADMIN además administra la empresa y su equipo.
+export const ROLES_EMPRESA = ['AUXILIAR', 'CONTADOR', 'ADMIN'] as const
+export type RolEmpresa = (typeof ROLES_EMPRESA)[number]
+const RANGO_ROL: Record<string, number> = { AUXILIAR: 1, CONTADOR: 2, ADMIN: 3 }
+
+// Exige que el usuario tenga, en la empresa activa, al menos el rol indicado.
+// El SUPER_ADMIN global (soporte/dueño de la plataforma) siempre pasa.
+export async function requireEmpresaRole(rolMinimo: RolEmpresa) {
+  const user = await requireAuth()
+  const empresaId = await requireEmpresa()
+  if (user.role === 'SUPER_ADMIN') return { user, empresaId, rol: 'ADMIN' as RolEmpresa }
+
+  const userEmpresa = await db.userEmpresa.findUnique({
+    where: { userId_empresaId: { userId: user.id, empresaId } },
+  })
+  const rol = (userEmpresa?.rol as RolEmpresa) || 'AUXILIAR'
+  if ((RANGO_ROL[rol] || 0) < RANGO_ROL[rolMinimo]) {
+    throw new Error(`Esta acción requiere el rol ${rolMinimo} o superior en la empresa`)
+  }
+  return { user, empresaId, rol }
+}

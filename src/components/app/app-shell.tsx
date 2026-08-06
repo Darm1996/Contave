@@ -33,6 +33,7 @@ import { Productos } from './productos'
 import { Inventario } from './inventario'
 import { CuentasPorCobrar, CuentasPorPagar } from './cuentas-por-cobrar-pagar'
 import { Vacaciones, Liquidaciones } from './nomina-lottt'
+import { Equipo } from './equipo'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -42,7 +43,7 @@ import {
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
-  Wallet, HandCoins, TreePalm, UserMinus,
+  Wallet, HandCoins, TreePalm, UserMinus, UsersRound,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -76,6 +77,7 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'liquidaciones', label: 'Liquidación de Personal', icon: UserMinus },
   { key: 'cuentas', label: 'Plan de Cuentas', icon: ListTree, section: 'Configuración' },
   { key: 'empresas', label: 'Empresas', icon: Building2 },
+  { key: 'equipo', label: 'Equipo', icon: UsersRound },
   { key: 'configuracion', label: 'Configuración', icon: Settings },
   { key: 'tasa', label: 'Tasa de Cambio', icon: DollarSign },
   { key: 'exportar', label: 'Exportar', icon: Download },
@@ -179,7 +181,10 @@ export function AppShell() {
           <div className="p-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
             <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Empresa activa</div>
             <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{empresaActiva.nombre}</div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">RIF: {empresaActiva.rif}</div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-slate-500 dark:text-slate-400">RIF: {empresaActiva.rif}</span>
+              {empresaActiva.rol && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{empresaActiva.rol}</Badge>}
+            </div>
           </div>
         )}
 
@@ -263,6 +268,7 @@ export function AppShell() {
           {tab === 'cuentas-por-pagar' && <CuentasPorPagar />}
           {tab === 'vacaciones' && <Vacaciones />}
           {tab === 'liquidaciones' && <Liquidaciones />}
+          {tab === 'equipo' && <Equipo />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}
           {tab === 'mayor' && <LibroMayor />}

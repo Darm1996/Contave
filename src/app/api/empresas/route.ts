@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser, setSessionCookie, requireAuth, requireEmpresa } from '@/lib/auth'
+import { getCurrentUser, setSessionCookie, requireAuth, requireEmpresaRole } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { CUENTAS_VEN_NIF } from '@/lib/contabilidad/plan-cuentas-ven-nif'
 
@@ -113,11 +113,7 @@ export async function POST(req: NextRequest) {
 // PATCH: actualizar datos de la empresa activa
 export async function PATCH(req: NextRequest) {
   try {
-    const user = await requireAuth()
-    const empresaId = await requireEmpresa()
-    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'Solo los administradores pueden editar la empresa' }, { status: 403 })
-    }
+    const { empresaId } = await requireEmpresaRole('ADMIN')
 
     const body = await req.json()
     const data: Record<string, unknown> = {}
@@ -166,6 +162,17 @@ export async function DELETE(req: NextRequest) {
     const count = await db.userEmpresa.count({ where: { userId: user.id } })
     if (count <= 1) {
       return NextResponse.json({ error: 'No puedes desasociar tu última empresa. Debes tener al menos una activa.' }, { status: 400 })
+    }
+    // Si es el único ADMIN de esa empresa y hay otros miembros, no dejarla sin administrador
+    const miMembresia = await db.userEmpresa.findUnique({ where: { userId_empresaId: { userId: user.id, empresaId } } })
+    if (miMembresia?.rol === 'ADMIN') {
+      const [totalAdmins, totalMiembros] = await Promise.all([
+        db.userEmpresa.count({ where: { empresaId, rol: 'ADMIN' } }),
+        db.userEmpresa.count({ where: { empresaId } }),
+      ])
+      if (totalAdmins <= 1 && totalMiembros > 1) {
+        return NextResponse.json({ error: 'Eres el único administrador de esta empresa. Asigna otro ADMIN antes de salir.' }, { status: 400 })
+      }
     }
     await db.userEmpresa.deleteMany({
       where: { userId: user.id, empresaId },

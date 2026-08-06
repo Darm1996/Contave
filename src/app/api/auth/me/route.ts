@@ -9,7 +9,8 @@ export async function GET() {
     where: { userId: user.id },
     include: { empresa: true },
   })
-  const empresaActiva = userEmps.find((ue) => ue.empresaId === user.empresaId)?.empresa || null
+  const ueActiva = userEmps.find((ue) => ue.empresaId === user.empresaId)
+  const empresaActiva = ueActiva ? { ...ueActiva.empresa, rol: ueActiva.rol } : null
   return NextResponse.json({
     user,
     empresaActiva,

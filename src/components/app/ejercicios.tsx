@@ -22,7 +22,9 @@ interface Ejercicio {
 }
 
 export function Ejercicios() {
-  const { user } = useApp()
+  const { user, empresaActiva } = useApp()
+  const puedeCerrar = empresaActiva?.rol === 'ADMIN' || empresaActiva?.rol === 'CONTADOR' || user?.role === 'SUPER_ADMIN'
+  const puedeReabrir = empresaActiva?.rol === 'ADMIN' || user?.role === 'SUPER_ADMIN'
   const [ejercicios, setEjercicios] = useState<Ejercicio[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -211,29 +213,33 @@ export function Ejercicios() {
                       </div>
                     )}
                     {e.estado === 'ABIERTO' ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowCerrarConfirm(e.ano)}
-                        disabled={actionLoading === `cerrar-${e.ano}`}
-                      >
-                        {actionLoading === `cerrar-${e.ano}`
-                          ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                          : <Lock className="w-4 h-4 mr-1" />}
-                        Cerrar ejercicio
-                      </Button>
+                      puedeCerrar && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowCerrarConfirm(e.ano)}
+                          disabled={actionLoading === `cerrar-${e.ano}`}
+                        >
+                          {actionLoading === `cerrar-${e.ano}`
+                            ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            : <Lock className="w-4 h-4 mr-1" />}
+                          Cerrar ejercicio
+                        </Button>
+                      )
                     ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => reabrirEjercicio(e.ano)}
-                        disabled={actionLoading === `reabrir-${e.ano}`}
-                      >
-                        {actionLoading === `reabrir-${e.ano}`
-                          ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                          : <Unlock className="w-4 h-4 mr-1" />}
-                        Reabrir
-                      </Button>
+                      puedeReabrir && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => reabrirEjercicio(e.ano)}
+                          disabled={actionLoading === `reabrir-${e.ano}`}
+                        >
+                          {actionLoading === `reabrir-${e.ano}`
+                            ? <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            : <Unlock className="w-4 h-4 mr-1" />}
+                          Reabrir
+                        </Button>
+                      )
                     )}
                   </div>
                 </div>

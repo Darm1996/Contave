@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireEmpresa } from '@/lib/auth'
+import { requireEmpresaRole } from '@/lib/auth'
 import { procesarNomina } from '@/lib/contabilidad/nomina'
 
 // POST /api/nomina/procesar - Body: { mes, ano, overrides?: [{empleadoId, diasTrabajados?, bonoAlimentacion?}] }
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuth()
-    const empresaId = await requireEmpresa()
+    const { user, empresaId } = await requireEmpresaRole('CONTADOR')
     const { mes, ano, overrides } = await req.json()
     if (!mes || !ano) return NextResponse.json({ error: 'mes y ano son requeridos' }, { status: 400 })
     const nomina = await procesarNomina(empresaId, Number(mes), Number(ano), user.id, { overrides })
