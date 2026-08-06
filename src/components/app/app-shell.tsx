@@ -31,6 +31,7 @@ import { AjusteInflacion } from './ajuste-inflacion'
 import { VencimientosFiscales } from './vencimientos-fiscales'
 import { Productos } from './productos'
 import { Inventario } from './inventario'
+import { CuentasPorCobrar, CuentasPorPagar } from './cuentas-por-cobrar-pagar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -40,6 +41,7 @@ import {
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
+  Wallet, HandCoins,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -64,6 +66,8 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'reporte-islr', label: 'Reporte Mensual ISLR', icon: FileSpreadsheet },
   { key: 'productos', label: 'Productos', icon: Boxes, section: 'Inventario' },
   { key: 'inventario', label: 'Kardex', icon: Warehouse },
+  { key: 'cuentas-por-cobrar', label: 'Cuentas por Cobrar', icon: Wallet, section: 'Cobranza y Pagos' },
+  { key: 'cuentas-por-pagar', label: 'Cuentas por Pagar', icon: HandCoins },
   { key: 'activos-fijos', label: 'Activos Fijos', icon: Package, section: 'Activos Fijos' },
   { key: 'empleados', label: 'Empleados', icon: Users, section: 'Nómina' },
   { key: 'nomina', label: 'Procesar Nómina', icon: FileSpreadsheet },
@@ -252,6 +256,8 @@ export function AppShell() {
           {tab === 'vencimientos-fiscales' && <VencimientosFiscales />}
           {tab === 'productos' && <Productos />}
           {tab === 'inventario' && <Inventario />}
+          {tab === 'cuentas-por-cobrar' && <CuentasPorCobrar />}
+          {tab === 'cuentas-por-pagar' && <CuentasPorPagar />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}
           {tab === 'mayor' && <LibroMayor />}

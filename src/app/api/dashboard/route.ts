@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { montoDeuda } from '@/lib/contabilidad/cuentas-por-cobrar-pagar'
 
 export async function GET() {
   try {
@@ -51,6 +52,13 @@ export async function GET() {
     const productos = await db.producto.findMany({ where: { empresaId, activo: true } })
     const valorizacionInventario = productos.reduce((s, p) => s + p.cantidadActual * p.costoPromedioActual, 0)
 
+    const [facturasCxC, facturasCxP] = await Promise.all([
+      db.factura.findMany({ where: { empresaId, tipo: 'VENTA', estado: 'CONTABILIZADA', estadoPago: { not: 'PAGADA' } } }),
+      db.factura.findMany({ where: { empresaId, tipo: 'COMPRA', estado: 'CONTABILIZADA', estadoPago: { not: 'PAGADA' } } }),
+    ])
+    const totalCxC = facturasCxC.reduce((s, f) => s + (montoDeuda(f) - f.montoPagado), 0)
+    const totalCxP = facturasCxP.reduce((s, f) => s + (montoDeuda(f) - f.montoPagado), 0)
+
     // Tasa de cambio más reciente
     const tasaBCV = await db.tasaCambio.findFirst({
       where: { empresaId, monedaRef: 'USD' },
@@ -97,6 +105,8 @@ export async function GET() {
       nominaMes: nominaMes ? { totalNeto: nominaMes.totalNeto, estado: nominaMes.estado } : null,
       ajusteInflacionMes: ajusteInflacionMes ? { resultadoExposicionInflacion: ajusteInflacionMes.resultadoExposicionInflacion } : null,
       inventario: { cantidadProductos: productos.length, valorizacion: valorizacionInventario },
+      cxc: { cantidad: facturasCxC.length, total: totalCxC },
+      cxp: { cantidad: facturasCxP.length, total: totalCxP },
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 401 })
