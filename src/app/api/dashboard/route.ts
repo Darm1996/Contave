@@ -48,6 +48,9 @@ export async function GET() {
       where: { empresaId_mes_ano: { empresaId, mes: ahora.getMonth() + 1, ano: ahora.getFullYear() } },
     })
 
+    const productos = await db.producto.findMany({ where: { empresaId, activo: true } })
+    const valorizacionInventario = productos.reduce((s, p) => s + p.cantidadActual * p.costoPromedioActual, 0)
+
     // Tasa de cambio más reciente
     const tasaBCV = await db.tasaCambio.findFirst({
       where: { empresaId, monedaRef: 'USD' },
@@ -93,6 +96,7 @@ export async function GET() {
       activosFijos: { cantidad: activosFijos.length, valorLibro: valorLibroActivosFijos },
       nominaMes: nominaMes ? { totalNeto: nominaMes.totalNeto, estado: nominaMes.estado } : null,
       ajusteInflacionMes: ajusteInflacionMes ? { resultadoExposicionInflacion: ajusteInflacionMes.resultadoExposicionInflacion } : null,
+      inventario: { cantidadProductos: productos.length, valorizacion: valorizacionInventario },
     })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 401 })

@@ -29,6 +29,8 @@ import { Empleados } from './empleados'
 import { Nomina } from './nomina'
 import { AjusteInflacion } from './ajuste-inflacion'
 import { VencimientosFiscales } from './vencimientos-fiscales'
+import { Productos } from './productos'
+import { Inventario } from './inventario'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -37,7 +39,7 @@ import {
   ListTree, Building2, DollarSign, Download, LogOut, BookOpenCheck,
   ShoppingCart, FileText, Receipt, Crown, FileBarChart, PieChart,
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
-  Package, Users, TrendingUp, FilePlus, Contact, CalendarClock,
+  Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -60,6 +62,8 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string }> = [
   { key: 'libro-ventas', label: 'Libro de Ventas', icon: FileText },
   { key: 'islr', label: 'Retenciones ISLR', icon: Receipt, section: 'Reportes ISLR' },
   { key: 'reporte-islr', label: 'Reporte Mensual ISLR', icon: FileSpreadsheet },
+  { key: 'productos', label: 'Productos', icon: Boxes, section: 'Inventario' },
+  { key: 'inventario', label: 'Kardex', icon: Warehouse },
   { key: 'activos-fijos', label: 'Activos Fijos', icon: Package, section: 'Activos Fijos' },
   { key: 'empleados', label: 'Empleados', icon: Users, section: 'Nómina' },
   { key: 'nomina', label: 'Procesar Nómina', icon: FileSpreadsheet },
@@ -246,6 +250,8 @@ export function AppShell() {
         <div className="p-3 sm:p-4 lg:p-6 max-w-7xl mx-auto">
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'vencimientos-fiscales' && <VencimientosFiscales />}
+          {tab === 'productos' && <Productos />}
+          {tab === 'inventario' && <Inventario />}
           {tab === 'escaner' && <EscanerFacturas />}
           {tab === 'diario' && <LibroDiario />}
           {tab === 'mayor' && <LibroMayor />}
