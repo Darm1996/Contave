@@ -38,14 +38,6 @@ import { Accionistas, ActasAsamblea } from './societario'
 import { DeclaracionISLRAnual } from './declaracion-islr-anual'
 import { Auditoria } from './auditoria'
 import { Notificaciones } from './notificaciones'
-import { RestaurantePanel } from './restaurante/panel'
-import { CierreDiario } from './restaurante/cierre-diario'
-import { RestauranteGastos } from './restaurante/gastos'
-import { RestauranteProveedores } from './restaurante/proveedores'
-import { RestaurantePorCobrar } from './restaurante/por-cobrar'
-import { RestauranteNomina } from './restaurante/nomina'
-import { RestauranteExtras } from './restaurante/extras'
-import { RestauranteConfiguracion } from './restaurante/configuracion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -56,7 +48,6 @@ import {
   Calendar, Landmark, FileSpreadsheet, Settings, Sun, Moon, Menu, X,
   Package, Users, TrendingUp, FilePlus, Contact, CalendarClock, Boxes, Warehouse,
   Wallet, HandCoins, TreePalm, UserMinus, UsersRound, Gavel, ShieldAlert, Mail,
-  UtensilsCrossed, CalendarDays, Truck, Banknote, Gift,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -64,16 +55,6 @@ const NAV: Array<{ key: any; label: string; icon: any; section?: string; adminOn
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Principal' },
   { key: 'vencimientos-fiscales', label: 'Calendario Fiscal', icon: CalendarClock },
   { key: 'notificaciones', label: 'Notificaciones', icon: Mail },
-  // Módulo Restaurante: administración diaria del negocio de comida. Va
-  // arriba porque es lo que se usa todos los días, no una vez al mes.
-  { key: 'rest-panel', label: 'Panel del negocio', icon: UtensilsCrossed, section: 'Restaurante' },
-  { key: 'rest-cierre', label: 'Cierre del día', icon: CalendarDays },
-  { key: 'rest-gastos', label: 'Gastos', icon: Receipt },
-  { key: 'rest-proveedores', label: 'Proveedores', icon: Truck },
-  { key: 'rest-cobrar', label: 'Fiados', icon: Banknote },
-  { key: 'rest-nomina', label: 'Nómina semanal', icon: Users },
-  { key: 'rest-extras', label: 'Cortesías y mermas', icon: Gift },
-  { key: 'rest-configuracion', label: 'Configurar negocio', icon: Settings },
   { key: 'escaner', label: 'Escanear Factura', icon: ScanLine, section: 'Operación' },
   { key: 'facturar', label: 'Facturar Venta', icon: FilePlus },
   { key: 'clientes', label: 'Clientes', icon: Contact },
@@ -291,14 +272,6 @@ export function AppShell() {
         <div className="p-3 sm:p-4 lg:p-6 max-w-7xl mx-auto">
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'vencimientos-fiscales' && <VencimientosFiscales />}
-          {tab === 'rest-panel' && <RestaurantePanel onIrACierre={() => setTab('rest-cierre')} />}
-          {tab === 'rest-cierre' && <CierreDiario />}
-          {tab === 'rest-gastos' && <RestauranteGastos />}
-          {tab === 'rest-proveedores' && <RestauranteProveedores />}
-          {tab === 'rest-cobrar' && <RestaurantePorCobrar />}
-          {tab === 'rest-nomina' && <RestauranteNomina />}
-          {tab === 'rest-extras' && <RestauranteExtras />}
-          {tab === 'rest-configuracion' && <RestauranteConfiguracion />}
           {tab === 'productos' && <Productos />}
           {tab === 'inventario' && <Inventario />}
           {tab === 'cuentas-por-cobrar' && <CuentasPorCobrar />}
