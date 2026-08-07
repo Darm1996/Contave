@@ -40,6 +40,15 @@ export type TabKey =
   | 'declaracion-islr-anual'
   | 'auditoria'
   | 'notificaciones'
+  // Módulo Restaurante (administración diaria del negocio de comida)
+  | 'rest-panel'
+  | 'rest-cierre'
+  | 'rest-gastos'
+  | 'rest-proveedores'
+  | 'rest-cobrar'
+  | 'rest-nomina'
+  | 'rest-extras'
+  | 'rest-configuracion'
 
 interface UserState {
   id: string
