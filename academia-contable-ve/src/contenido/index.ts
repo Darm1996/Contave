@@ -11,6 +11,11 @@ import {
   leccionCuatroEstados,
   leccionRelacionEstados,
 } from "./estados-financieros";
+import {
+  flashcardsAuditoriaInventario,
+  leccionConciliacionBancaria,
+  leccionInventario,
+} from "./auditoria-inventario";
 
 export { MODULOS } from "./modulos";
 
@@ -23,12 +28,15 @@ const TODAS_LAS_LECCIONES: Leccion[] = [
   leccionIGTF,
   leccionCuatroEstados,
   leccionRelacionEstados,
+  leccionConciliacionBancaria,
+  leccionInventario,
 ];
 const TODAS_LAS_FLASHCARDS: Flashcard[] = [
   ...flashcardsFundamentos,
   ...flashcardsMultimonedaInflacion,
   ...flashcardsTributario,
   ...flashcardsEstadosFinancieros,
+  ...flashcardsAuditoriaInventario,
 ];
 
 export function obtenerLeccion(id: string): Leccion | undefined {

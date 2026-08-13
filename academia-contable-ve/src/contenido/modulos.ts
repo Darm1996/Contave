@@ -40,6 +40,6 @@ export const MODULOS: Modulo[] = [
     numero: 5,
     nombre: "Auditoría e Inventario",
     descripcion: "Conciliaciones, arqueos, control de inventario.",
-    leccionesIds: [],
+    leccionesIds: ["auditoria-conciliacion-bancaria", "auditoria-inventario"],
   },
 ];

@@ -40,7 +40,9 @@ especializado), no por el usuario. Se agrega módulo por módulo:
 4. **Estados financieros (VEN-NIF/NIC 1)** — dos lecciones: los 4
    estados y qué muestra cada uno, y cómo se encadenan entre sí.
    *(Implementado.)*
-5. Auditoría e inventario
+5. **Auditoría e inventario** — dos lecciones: arqueo de caja/
+   conciliación bancaria, y control de inventario (costeo promedio
+   ponderado, mermas). *(Implementado — catálogo completo.)*
 
 ## Estructura
 
