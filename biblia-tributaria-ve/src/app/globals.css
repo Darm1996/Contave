@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  /* Tipografía — ver src/lib/design-tokens.ts */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, monospace;
+
+  /* Color: alto contraste, escala de grises, un único acento de acción y
+     un rojo semántico reservado (ver design-tokens.ts para la nota de
+     por qué van separados). */
+  --color-acento: #2563eb;
+  --color-alerta: #dc2626;
+  --color-exito: #16a34a;
+
+  --color-gris-50: #fafafa;
+  --color-gris-100: #f5f5f5;
+  --color-gris-200: #e5e5e5;
+  --color-gris-300: #d4d4d4;
+  --color-gris-400: #a3a3a3;
+  --color-gris-500: #737373;
+  --color-gris-600: #525252;
+  --color-gris-700: #404040;
+  --color-gris-800: #262626;
+  --color-gris-900: #171717;
+  --color-gris-950: #0a0a0a;
+
+  /* Escala de espaciado 4/8px */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+}
+
+:root {
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --bg-panel: #fafafa;
+  --borde: #e5e5e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --fg: #fafafa;
+    --bg-panel: #171717;
+    --borde: #262626;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+
+/* Cifras y tablas siempre en fuente monoespaciada tabular, para que los
+   contadores puedan comparar columnas de números a simple vista. */
+.cifra {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
