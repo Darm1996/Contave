@@ -50,7 +50,33 @@ biblia-tributaria-ve/
 
 ## Estado
 
-Iteración 1 completa: estructura, esquema de base de datos, layout base.
-**Aún no se ha instalado ninguna dependencia ni se ha desplegado nada.**
-Pendiente: profundizar en el Módulo 2 (Multimoneda e Inflación) según lo
-indicado en el prompt maestro.
+- **Iteración 1**: estructura, esquema de base de datos, layout base.
+- **Iteración 2 — Módulo 2 (Multimoneda e Inflación)**:
+  - `supabase/migrations/0002_modulo2_multimoneda_inflacion.sql`: plan
+    de cuentas mínimo (monetaria/no monetaria, moneda), partidas en
+    moneda extranjera con sus liquidaciones (diferencial realizado) y
+    cierres de período (diferencial no realizado), partidas no
+    monetarias y ajuste por inflación por período (reexpresión +
+    REPOMAN). RLS en todas las tablas nuevas.
+  - `src/lib/motores/diferencial-cambiario.ts` y
+    `src/lib/motores/ajuste-inflacion.ts`: funciones puras, sin
+    dependencia de base de datos, cada una devuelve su traza completa
+    (fórmula, insumos, parámetros con fecha/fuente/verificado,
+    resultado). 20 tests unitarios en `tests/` cubren ganancia/pérdida
+    en ambos sentidos, partidas activas vs. pasivas, posición monetaria
+    neta activa vs. pasiva, movimientos intermedios y validaciones de
+    error.
+  - `/modulo-2`: simuladores interactivos de ambos motores, con
+    advertencia explícita de que los valores de tasa/INPC se ingresan a
+    mano y no son datos oficiales — ver §1, "prohibido inventar cifras
+    legales".
+
+**Aún no se ha instalado ninguna dependencia de producción externa a
+Next.js/Supabase, ni se ha desplegado nada ni provisionado un proyecto
+de Supabase real.** Los parámetros que usan los simuladores no vienen
+todavía de `series_temporales` — eso requiere primero tener un proyecto
+de Supabase conectado y una capa de consulta de parámetros vigentes
+(pendiente, ver siguiente iteración sugerida).
+
+Pendiente: conectar los simuladores a un proyecto real de Supabase, o
+profundizar en el siguiente módulo — a definir con el usuario.
