@@ -83,19 +83,38 @@ biblia-tributaria-ve/
     excedente anterior). 19 tests unitarios.
   - `/modulo-3`: simulador de las 4 piezas de IVA, con la misma
     advertencia de valores manuales no oficiales.
-  - **Pendiente dentro de este mismo módulo**: ISLR (retenciones Decreto
-    1808, tarifas 1/2/3, conciliación fiscal, declaración estimada y
-    definitiva) e IGTF (alícuota, percepciones en divisas, declaración
-    quincenal) — quedan para la siguiente sub-iteración, junto con la
-    diferenciación explícita de flujos Ordinario vs. SPE en la UI.
+- **Iteración 4 — Módulo 3, sub-iteración ISLR + IGTF (cierra el Módulo 3)**:
+  - `supabase/migrations/0004_modulo3_islr_igtf.sql`: `tramos_islr`
+    (tabla de tramos de las tarifas 1/2/3, catálogo compartido con RLS
+    de lectura general/escritura SUPER_ADMIN — igual patrón que
+    `parametros_fiscales`), `retenciones_islr` (Decreto 1808),
+    `conciliaciones_fiscales_islr`, `declaraciones_islr`
+    (estimada/definitiva), `operaciones_igtf` y
+    `declaraciones_igtf_quincenales`. RLS en todo.
+  - `src/lib/motores/islr.ts`: retención (con sustraendo en UT para
+    personas naturales), conciliación fiscal (utilidad contable → renta
+    gravable), tarifa progresiva genérica (recibe la tabla de tramos
+    como insumo, nunca hardcodeada — funciona para tarifa 1, 2 o 3),
+    rebaja por nuevas inversiones, anticipo de la declaración estimada.
+  - `src/lib/motores/igtf.ts`: `esOperacionSujetaIGTF` deja explícita la
+    regla de sujeción (divisas/cripto para cualquiera, o efectivo
+    nacional solo para SPE) separada del cálculo del monto; declaración
+    quincenal como suma de operaciones sujetas.
+  - 25 tests unitarios nuevos (64 en total en el proyecto).
+  - `/modulo-3` ahora tiene los tres simuladores (IVA, ISLR, IGTF) y una
+    nota explicando que `empresas.tipo_contribuyente` (Ordinario/SPE) ya
+    está en el esquema desde la Iteración 1, y que un flujo de UI que
+    cambie según ese tipo se implementa al conectar datos reales.
 
-**Aún no se ha instalado ninguna dependencia de producción externa a
-Next.js/Supabase, ni se ha desplegado nada ni provisionado un proyecto
-de Supabase real** (decisión explícita del usuario: Supabase se conecta
-más adelante). Los parámetros que usan los simuladores no vienen
-todavía de `series_temporales`/`parametros_fiscales` — eso requiere
+**Módulo 3 completo** (IVA + ISLR + IGTF). Aún no se ha instalado
+ninguna dependencia de producción externa a Next.js/Supabase, ni se ha
+desplegado nada ni provisionado un proyecto de Supabase real (decisión
+explícita del usuario: Supabase se conecta más adelante). Los
+parámetros que usan los simuladores no vienen todavía de
+`series_temporales`/`parametros_fiscales`/`tramos_islr` — eso requiere
 primero tener un proyecto de Supabase conectado y una capa de consulta
 de parámetros vigentes.
 
-Pendiente: terminar Módulo 3 (ISLR, IGTF) o pasar al siguiente módulo —
-a definir con el usuario.
+Pendiente: siguiente módulo del prompt maestro — a definir con el
+usuario (Módulo 4 Municipal/Estadal, Módulo 5 Nómina, Módulo 6 Estados
+Financieros o Módulo 7 Auditoría), o conectar Supabase.
