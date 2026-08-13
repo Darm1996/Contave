@@ -26,7 +26,7 @@ export const MODULOS: Modulo[] = [
     numero: 3,
     nombre: "Tributario Nacional (SENIAT)",
     descripcion: "IVA, ISLR, IGTF: cómo se calculan y cuándo aplican.",
-    leccionesIds: [],
+    leccionesIds: ["tributario-iva", "tributario-islr", "tributario-igtf"],
   },
   {
     id: "estados-financieros",

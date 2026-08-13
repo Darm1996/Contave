@@ -35,7 +35,8 @@ especializado), no por el usuario. Se agrega módulo por módulo:
 2. **Multimoneda y ajuste por inflación** (NIC 21, BA VEN-NIF 2/NIC 29)
    — dos lecciones: diferencial cambiario, y reexpresión/REPOMAN.
    *(Implementado.)*
-3. Tributario nacional: IVA, ISLR, IGTF
+3. **Tributario nacional: IVA, ISLR, IGTF** — tres lecciones, una por
+   tributo. *(Implementado.)*
 4. Estados financieros (VEN-NIF/NIC 1)
 5. Auditoría e inventario
 
