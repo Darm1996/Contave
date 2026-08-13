@@ -73,8 +73,14 @@ academia-contable-ve/
 
 ## Estado
 
-**Aún no desplegado.** Persistencia de progreso en `localStorage` del
-navegador por ahora — el esquema de Supabase para progreso por usuario
-ya está diseñado (`supabase/migrations/0001_init.sql`) pero no hay
-proyecto conectado, siguiendo la misma decisión que en
-`biblia-tributaria-ve` (Supabase se conecta más adelante).
+**Desplegado, con Supabase conectado.** Con sesión iniciada
+(`/cuenta`), el progreso de lecciones y flashcards se guarda en
+Supabase (tablas `acve_*`, RLS por `usuario_id`) y se sincroniza entre
+dispositivos. Sin sesión, sigue funcionando en modo invitado con
+`localStorage` — `src/lib/aprendizaje/progreso.ts` decide cuál de los
+dos usar según haya o no usuario autenticado.
+
+El proyecto Supabase usado (`rivalta321's Project`) también aloja la
+base de datos de ContaVE — las tablas de esta app usan el prefijo
+`acve_` para no chocar con las de ContaVE, y no se tocó ninguna tabla
+existente.

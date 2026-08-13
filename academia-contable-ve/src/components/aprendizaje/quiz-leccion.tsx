@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { calificarQuiz, type RespuestaUsuario, type ResultadoQuiz } from "@/lib/aprendizaje/quiz";
-import { registrarResultadoLeccion } from "@/lib/aprendizaje/progreso-local";
+import { registrarResultadoLeccion } from "@/lib/aprendizaje/progreso";
+import { useAuth } from "@/lib/auth/auth-provider";
 import type { Pregunta } from "@/lib/aprendizaje/tipos";
 
 export function QuizLeccion({ leccionId, preguntas }: { leccionId: string; preguntas: Pregunta[] }) {
+  const { usuario } = useAuth();
   const [respuestas, setRespuestas] = useState<Record<string, string>>({});
   const [resultado, setResultado] = useState<ResultadoQuiz | null>(null);
 
@@ -20,7 +22,7 @@ export function QuizLeccion({ leccionId, preguntas }: { leccionId: string; pregu
     );
     const r = calificarQuiz(preguntas, respuestasArray);
     setResultado(r);
-    registrarResultadoLeccion(leccionId, r.porcentaje, r.aprobado);
+    void registrarResultadoLeccion(usuario?.id ?? null, leccionId, r.porcentaje, r.aprobado);
   };
 
   const reintentar = () => {

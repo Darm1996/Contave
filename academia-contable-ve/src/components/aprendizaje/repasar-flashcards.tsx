@@ -1,13 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   actualizarEstadoTarjeta,
   calcularProximaFechaRevision,
   tarjetaPendienteHoy,
   type CalidadRespuesta,
 } from "@/lib/aprendizaje/repeticion-espaciada";
-import { guardarEstadoFlashcard, obtenerEstadoFlashcard } from "@/lib/aprendizaje/progreso-local";
+import {
+  guardarEstadoFlashcard,
+  obtenerTodosLosEstadosFlashcards,
+} from "@/lib/aprendizaje/progreso";
+import { useAuth } from "@/lib/auth/auth-provider";
 import type { Flashcard } from "@/lib/aprendizaje/tipos";
 
 const OPCIONES_CALIDAD: Array<{ valor: CalidadRespuesta; etiqueta: string; estilo: string }> = [
@@ -17,34 +21,51 @@ const OPCIONES_CALIDAD: Array<{ valor: CalidadRespuesta; etiqueta: string; estil
 ];
 
 export function RepasarFlashcards({ flashcards }: { flashcards: Flashcard[] }) {
-  // Se calcula una sola vez al montar (no en cada render) qué tarjetas
-  // están pendientes hoy según su estado guardado en localStorage.
-  const [cola, setCola] = useState<Flashcard[]>(() => {
-    const hoy = new Date();
-    return flashcards.filter((f) => {
-      const { proximaFechaRevisionISO } = obtenerEstadoFlashcard(f.id);
-      return tarjetaPendienteHoy(proximaFechaRevisionISO, hoy);
-    });
-  });
+  const { usuario, cargando } = useAuth();
+  const [cargandoCola, setCargandoCola] = useState(true);
+  const [cola, setCola] = useState<Flashcard[]>([]);
   const [indice, setIndice] = useState(0);
+  const [totalPendientesInicial, setTotalPendientesInicial] = useState(0);
   const [mostrarRespuesta, setMostrarRespuesta] = useState(false);
   const [repasadasHoy, setRepasadasHoy] = useState(0);
 
+  useEffect(() => {
+    if (cargando) return;
+    let cancelado = false;
+    obtenerTodosLosEstadosFlashcards(usuario?.id ?? null).then((estados) => {
+      if (cancelado) return;
+      const hoy = new Date();
+      const pendientes = flashcards.filter((f) =>
+        tarjetaPendienteHoy(estados[f.id]?.proximaFechaRevisionISO ?? null, hoy),
+      );
+      setCola(pendientes);
+      setTotalPendientesInicial(pendientes.length);
+      setIndice(0);
+      setCargandoCola(false);
+    });
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usuario?.id, cargando]);
+
   const tarjetaActual = cola[indice];
 
-  const calificar = (calidad: CalidadRespuesta) => {
+  const calificar = async (calidad: CalidadRespuesta) => {
     if (!tarjetaActual) return;
-    const { estado } = obtenerEstadoFlashcard(tarjetaActual.id);
-    const nuevoEstado = actualizarEstadoTarjeta(estado, calidad);
+    const estados = await obtenerTodosLosEstadosFlashcards(usuario?.id ?? null);
+    const estadoAnterior = estados[tarjetaActual.id]?.estado;
+    const nuevoEstado = actualizarEstadoTarjeta(
+      estadoAnterior ?? { repeticiones: 0, facilidad: 2.5, intervaloDias: 0 },
+      calidad,
+    );
     const proximaFecha = calcularProximaFechaRevision(nuevoEstado, new Date());
-    guardarEstadoFlashcard(tarjetaActual.id, nuevoEstado, proximaFecha);
+    await guardarEstadoFlashcard(usuario?.id ?? null, tarjetaActual.id, nuevoEstado, proximaFecha);
 
     setRepasadasHoy((n) => n + 1);
     setMostrarRespuesta(false);
     setIndice((i) => i + 1);
   };
-
-  const totalPendientesInicial = useMemo(() => cola.length, [cola]);
 
   if (flashcards.length === 0) {
     return (
@@ -52,6 +73,10 @@ export function RepasarFlashcards({ flashcards }: { flashcards: Flashcard[] }) {
         Todavía no hay flashcards de este módulo.
       </p>
     );
+  }
+
+  if (cargando || cargandoCola) {
+    return <p className="text-sm text-gris-500">Cargando…</p>;
   }
 
   if (!tarjetaActual) {
@@ -103,7 +128,7 @@ export function RepasarFlashcards({ flashcards }: { flashcards: Flashcard[] }) {
               <button
                 key={op.valor}
                 type="button"
-                onClick={() => calificar(op.valor)}
+                onClick={() => void calificar(op.valor)}
                 className={`rounded-md border px-3 py-2 text-sm transition-colors ${op.estilo}`}
               >
                 {op.etiqueta}

@@ -4,12 +4,11 @@ import {
 } from "./repeticion-espaciada";
 
 /**
- * Persistencia de progreso en localStorage. Temporal: cuando se
- * conecte Supabase (decisión pendiente, ver README), esto se reemplaza
- * por lectura/escritura a las tablas `progreso_lecciones` y
- * `progreso_flashcards` de supabase/migrations/0001_init.sql, que
- * tienen exactamente esta misma forma — el cambio debería ser
- * mecánico.
+ * Persistencia de progreso en localStorage — usada como modo invitado
+ * (sin sesión) por src/lib/aprendizaje/progreso.ts, que es la capa que
+ * los componentes deben usar. Con sesión activa, progreso.ts lee/
+ * escribe en Supabase en su lugar (mismas tablas de
+ * supabase/migrations/0001_init.sql).
  */
 
 const CLAVE_ALMACENAMIENTO = "academia-contable-ve:progreso";
@@ -89,4 +88,28 @@ export function guardarEstadoFlashcard(
   const progreso = cargarProgreso();
   progreso.flashcards[flashcardId] = { flashcardId, estado, proximaFechaRevisionISO };
   guardarProgreso(progreso);
+}
+
+export function obtenerTodosLosEstadosFlashcardsLocal(): Record<
+  string,
+  { estado: EstadoTarjeta; proximaFechaRevisionISO: string | null }
+> {
+  const progreso = cargarProgreso();
+  const mapa: Record<string, { estado: EstadoTarjeta; proximaFechaRevisionISO: string | null }> = {};
+  for (const [flashcardId, registro] of Object.entries(progreso.flashcards)) {
+    mapa[flashcardId] = { estado: registro.estado, proximaFechaRevisionISO: registro.proximaFechaRevisionISO };
+  }
+  return mapa;
+}
+
+export function obtenerTodoElProgresoLeccionesLocal(): Record<
+  string,
+  { aprobado: boolean; mejorPorcentaje: number }
+> {
+  const progreso = cargarProgreso();
+  const mapa: Record<string, { aprobado: boolean; mejorPorcentaje: number }> = {};
+  for (const [leccionId, registro] of Object.entries(progreso.lecciones)) {
+    mapa[leccionId] = { aprobado: registro.aprobado, mejorPorcentaje: registro.mejorPorcentaje };
+  }
+  return mapa;
 }
