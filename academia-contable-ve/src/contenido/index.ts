@@ -6,6 +6,11 @@ import {
   leccionDiferencialCambiario,
 } from "./multimoneda-inflacion";
 import { flashcardsTributario, leccionIGTF, leccionISLR, leccionIVA } from "./tributario";
+import {
+  flashcardsEstadosFinancieros,
+  leccionCuatroEstados,
+  leccionRelacionEstados,
+} from "./estados-financieros";
 
 export { MODULOS } from "./modulos";
 
@@ -16,11 +21,14 @@ const TODAS_LAS_LECCIONES: Leccion[] = [
   leccionIVA,
   leccionISLR,
   leccionIGTF,
+  leccionCuatroEstados,
+  leccionRelacionEstados,
 ];
 const TODAS_LAS_FLASHCARDS: Flashcard[] = [
   ...flashcardsFundamentos,
   ...flashcardsMultimonedaInflacion,
   ...flashcardsTributario,
+  ...flashcardsEstadosFinancieros,
 ];
 
 export function obtenerLeccion(id: string): Leccion | undefined {

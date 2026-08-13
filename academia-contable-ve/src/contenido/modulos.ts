@@ -33,7 +33,7 @@ export const MODULOS: Modulo[] = [
     numero: 4,
     nombre: "Estados Financieros",
     descripcion: "VEN-NIF/NIC 1: los 4 estados y cómo se relacionan entre sí.",
-    leccionesIds: [],
+    leccionesIds: ["ef-cuatro-estados", "ef-relacion-estados"],
   },
   {
     id: "auditoria",

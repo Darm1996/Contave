@@ -37,7 +37,9 @@ especializado), no por el usuario. Se agrega módulo por módulo:
    *(Implementado.)*
 3. **Tributario nacional: IVA, ISLR, IGTF** — tres lecciones, una por
    tributo. *(Implementado.)*
-4. Estados financieros (VEN-NIF/NIC 1)
+4. **Estados financieros (VEN-NIF/NIC 1)** — dos lecciones: los 4
+   estados y qué muestra cada uno, y cómo se encadenan entre sí.
+   *(Implementado.)*
 5. Auditoría e inventario
 
 ## Estructura
