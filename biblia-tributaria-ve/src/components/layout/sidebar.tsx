@@ -1,7 +1,7 @@
 const modulos = [
   { id: "setup", href: "#setup", numero: 1, nombre: "Setup Corporativo" },
   { id: "multimoneda", href: "/modulo-2", numero: 2, nombre: "Multimoneda e Inflación" },
-  { id: "seniat", href: "#seniat", numero: 3, nombre: "Ecosistema SENIAT" },
+  { id: "seniat", href: "/modulo-3", numero: 3, nombre: "Ecosistema SENIAT" },
   { id: "municipal", href: "#municipal", numero: 4, nombre: "Municipal y Estadal" },
   { id: "nomina", href: "#nomina", numero: 5, nombre: "Nómina y Parafiscal" },
   { id: "estados-financieros", href: "#estados-financieros", numero: 6, nombre: "Estados Financieros" },

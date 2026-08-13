@@ -71,12 +71,31 @@ biblia-tributaria-ve/
     mano y no son datos oficiales — ver §1, "prohibido inventar cifras
     legales".
 
+- **Iteración 3 — Módulo 3, sub-iteración IVA (Ecosistema SENIAT)**:
+  - `supabase/migrations/0003_modulo3_iva.sql`: libro de compras/ventas
+    (`documentos_iva`, un tipo de documento por fila — factura, nota de
+    crédito/débito), prorrateo de crédito fiscal (Art. 34 LIVA),
+    declaración mensual (`declaraciones_iva`) y retención de IVA
+    quincenal para el Sujeto Pasivo Especial. RLS en todas las tablas.
+  - `src/lib/motores/iva.ts`: 4 funciones puras — IVA de un documento,
+    retención 75%/100%, prorrateo de crédito fiscal, y consolidación de
+    la declaración mensual (débito − crédito − retenciones soportadas −
+    excedente anterior). 19 tests unitarios.
+  - `/modulo-3`: simulador de las 4 piezas de IVA, con la misma
+    advertencia de valores manuales no oficiales.
+  - **Pendiente dentro de este mismo módulo**: ISLR (retenciones Decreto
+    1808, tarifas 1/2/3, conciliación fiscal, declaración estimada y
+    definitiva) e IGTF (alícuota, percepciones en divisas, declaración
+    quincenal) — quedan para la siguiente sub-iteración, junto con la
+    diferenciación explícita de flujos Ordinario vs. SPE en la UI.
+
 **Aún no se ha instalado ninguna dependencia de producción externa a
 Next.js/Supabase, ni se ha desplegado nada ni provisionado un proyecto
-de Supabase real.** Los parámetros que usan los simuladores no vienen
-todavía de `series_temporales` — eso requiere primero tener un proyecto
-de Supabase conectado y una capa de consulta de parámetros vigentes
-(pendiente, ver siguiente iteración sugerida).
+de Supabase real** (decisión explícita del usuario: Supabase se conecta
+más adelante). Los parámetros que usan los simuladores no vienen
+todavía de `series_temporales`/`parametros_fiscales` — eso requiere
+primero tener un proyecto de Supabase conectado y una capa de consulta
+de parámetros vigentes.
 
-Pendiente: conectar los simuladores a un proyecto real de Supabase, o
-profundizar en el siguiente módulo — a definir con el usuario.
+Pendiente: terminar Módulo 3 (ISLR, IGTF) o pasar al siguiente módulo —
+a definir con el usuario.

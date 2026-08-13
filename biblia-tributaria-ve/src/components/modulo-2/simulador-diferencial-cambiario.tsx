@@ -6,7 +6,7 @@ import {
   calcularDiferencialCambiarioRealizado,
   type NaturalezaPartida,
 } from "@/lib/motores/diferencial-cambiario";
-import { TrazaPanel } from "./traza-panel";
+import { TrazaPanel } from "@/components/shared/traza-panel";
 
 const inputClase =
   "w-full rounded-md border border-[var(--borde)] bg-transparent px-2.5 py-1.5 text-sm outline-none focus:border-acento";
