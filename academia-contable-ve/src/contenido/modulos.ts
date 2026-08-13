@@ -19,7 +19,7 @@ export const MODULOS: Modulo[] = [
     numero: 2,
     nombre: "Multimoneda y Ajuste por Inflación",
     descripcion: "NIC 21 (diferencial cambiario) y BA VEN-NIF 2/NIC 29 (reexpresión, REPOMAN).",
-    leccionesIds: [],
+    leccionesIds: ["multimoneda-diferencial-cambiario", "multimoneda-ajuste-inflacion"],
   },
   {
     id: "tributario",

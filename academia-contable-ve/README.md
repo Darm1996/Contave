@@ -31,9 +31,10 @@ Orden decidido por diseño pedagógico (fundamentos primero, luego lo más
 especializado), no por el usuario. Se agrega módulo por módulo:
 
 1. **Fundamentos de contabilidad general** — partida doble, ecuación
-   contable, plan de cuentas, tipos de cuenta. *(Implementado en esta
-   iteración.)*
-2. Multimoneda y ajuste por inflación (NIC 21, BA VEN-NIF 2/NIC 29)
+   contable, plan de cuentas, tipos de cuenta. *(Implementado.)*
+2. **Multimoneda y ajuste por inflación** (NIC 21, BA VEN-NIF 2/NIC 29)
+   — dos lecciones: diferencial cambiario, y reexpresión/REPOMAN.
+   *(Implementado.)*
 3. Tributario nacional: IVA, ISLR, IGTF
 4. Estados financieros (VEN-NIF/NIC 1)
 5. Auditoría e inventario
