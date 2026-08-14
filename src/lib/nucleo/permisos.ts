@@ -313,6 +313,26 @@ export async function exigirPermiso(
   return ctx
 }
 
+/**
+ * Comprueba un permiso sobre un contexto YA resuelto, sin ir a la base de
+ * datos.
+ *
+ * Existe para que los motores de dominio (ventas, caja, inventario) validen
+ * por sí mismos y no dependan de que la ruta se haya acordado de hacerlo. La
+ * regla del proyecto es que los permisos se validan en el servidor, y "en el
+ * servidor" no puede significar "en la capa de rutas": cualquier otro llamador
+ * —un script de mantenimiento, una tarea programada, una ruta nueva— entraría
+ * por detrás. El motor es el último punto donde la operación todavía se puede
+ * negar.
+ */
+export function exigirEnContexto(ctx: ContextoOperacion, permiso: Permiso | Permiso[]): void {
+  const requeridos = Array.isArray(permiso) ? permiso : [permiso]
+  const faltantes = requeridos.filter((p) => !ctx.puede(p))
+  if (faltantes.length > 0) {
+    throw new ErrorPermiso(`Tu rol (${ctx.rol}) no permite: ${faltantes.map((p) => PERMISOS[p]).join(', ')}`)
+  }
+}
+
 /** Verifica que el usuario pueda operar en la sucursal indicada. */
 export function exigirSucursal(ctx: ContextoOperacion, sucursalId: string): void {
   if (ctx.sucursalesPermitidas.length === 0) return

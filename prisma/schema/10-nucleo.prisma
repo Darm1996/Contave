@@ -128,6 +128,7 @@ model Organizacion {
   gruposModificador GrupoModificador[]
   temporadas        Temporada[]
   apartados         Apartado[]
+  secuencias        SecuenciaOperativa[]
   bitacora          AuditLog[]
 
   createdAt DateTime  @default(now())
@@ -303,6 +304,32 @@ model MembresiaSucursal {
   @@id([membresiaId, sucursalId])
   @@index([sucursalId])
   @@map("usuarios_sucursales")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  CORRELATIVOS
+// ───────────────────────────────────────────────────────────────────────
+
+// Siguiente número por tipo de documento y serie. Existe como tabla, y no
+// como un `MAX(numero) + 1`, porque el máximo se calcula sobre filas que otra
+// transacción todavía no confirmó: dos cajeros cobrando al mismo tiempo
+// leerían el mismo máximo y emitirían dos tickets con el mismo número. Aquí la
+// fila se bloquea (FOR UPDATE) y se incrementa dentro de la misma transacción
+// que crea el documento, así que el correlativo no tiene huecos ni repetidos.
+model SecuenciaOperativa {
+  id              String @id @default(cuid())
+  organizacionId  String
+  tipo            String // VENTA_TICKET | VENTA_FACTURA | COMPRA | TRASLADO | TOMA | GASTO | APARTADO | COMANDA
+  serie           String @default("A")
+  siguienteNumero Int    @default(1)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizacionId, tipo, serie])
+  @@map("secuencias_operativas")
 }
 
 // ───────────────────────────────────────────────────────────────────────

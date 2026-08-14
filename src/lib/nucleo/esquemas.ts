@@ -252,6 +252,89 @@ export const esquemaMovimientoInventario = z
     path: ['costoUnitario'],
   })
 
+// ───────────────────────────────────────────────────────────────────────
+//  VENTAS Y POS
+// ───────────────────────────────────────────────────────────────────────
+
+export const esquemaLineaVenta = z.object({
+  varianteId: zId,
+  cantidad: zCantidadPositiva,
+  /** Si no viene, se toma el precio vigente de la lista. */
+  precioUnitario: zDecimal({ min: '0' }).optional(),
+  descuentoMonto: zDecimal({ min: '0' }).optional(),
+  autorizadoPorId: zId.optional().nullable(),
+  notas: z.string().trim().max(300).optional().nullable(),
+})
+
+export const esquemaCobro = z.object({
+  metodoPagoId: zId,
+  monto: zCantidadPositiva,
+  tasaCambio: zTasa.optional(),
+  referencia: z.string().trim().max(100).optional().nullable(),
+})
+
+export const TIPOS_DOCUMENTO_VENTA = ['TICKET', 'NOTA_ENTREGA', 'FACTURA'] as const
+export const CANALES_VENTA = ['MOSTRADOR', 'SALON', 'LLEVAR', 'DELIVERY'] as const
+
+export const esquemaVenta = z
+  .object({
+    sucursalId: zId,
+    almacenId: zId,
+    sesionCajaId: zId.optional().nullable(),
+    clienteId: zId.optional().nullable(),
+    listaPrecioId: zId.optional().nullable(),
+    tipoDocumento: z.enum(TIPOS_DOCUMENTO_VENTA).default('TICKET'),
+    serie: z.string().trim().min(1).max(4).toUpperCase().default('A'),
+    canal: z.enum(CANALES_VENTA).default('MOSTRADOR'),
+    lineas: z.array(esquemaLineaVenta).min(1, 'Una venta necesita al menos una línea'),
+    cobros: z.array(esquemaCobro).default([]),
+    aCredito: z.boolean().default(false),
+    propina: zDecimal({ min: '0' }).default('0'),
+    notas: z.string().trim().max(500).optional().nullable(),
+  })
+  .refine((v) => v.aCredito || v.cobros.length > 0, {
+    // Regla innegociable: una venta no se cierra sin método de pago identificado.
+    message: 'Indica cómo se cobró la venta: no se puede cerrar sin método de pago',
+    path: ['cobros'],
+  })
+  .refine((v) => !v.aCredito || Boolean(v.clienteId), {
+    message: 'Una venta a crédito necesita un cliente identificado',
+    path: ['clienteId'],
+  })
+
+export const esquemaAnularVenta = z.object({
+  motivo: z.string().trim().min(3, 'Explica el motivo de la anulación').max(500),
+})
+
+// ───────────────────────────────────────────────────────────────────────
+//  CAJA
+// ───────────────────────────────────────────────────────────────────────
+
+export const esquemaAbrirTurno = z.object({
+  cajaId: zId,
+  montoInicial: zDecimal({ min: '0' }),
+  observaciones: z.string().trim().max(500).optional().nullable(),
+})
+
+export const esquemaCerrarTurno = z.object({
+  efectivoContado: zDecimal({ min: '0' }),
+  justificacion: z.string().trim().max(500).optional().nullable(),
+  detallePorMetodo: z
+    .array(z.object({ metodoPagoId: zId, montoContado: zDecimal({ permiteNegativo: false }) }))
+    .default([]),
+  observaciones: z.string().trim().max(500).optional().nullable(),
+})
+
+export const TIPOS_MOVIMIENTO_CAJA = ['INGRESO', 'EGRESO', 'TRASPASO_BOVEDA', 'FONDO_ADICIONAL'] as const
+
+export const esquemaMovimientoCaja = z.object({
+  sesionCajaId: zId,
+  tipo: z.enum(TIPOS_MOVIMIENTO_CAJA),
+  concepto: z.string().trim().min(3, 'Explica el concepto del movimiento').max(300),
+  monto: zCantidadPositiva,
+  referencia: z.string().trim().max(100).optional().nullable(),
+})
+
 export const esquemaTasaCambio = z.object({
   fecha: zFecha,
   monedaRef: zMoneda.default('USD'),
@@ -278,3 +361,9 @@ export type EntradaImpuesto = z.infer<typeof esquemaImpuesto>
 export type EntradaAtributo = z.infer<typeof esquemaAtributo>
 export type EntradaMovimientoManual = z.infer<typeof esquemaMovimientoInventario>
 export type EntradaTasaCambio = z.infer<typeof esquemaTasaCambio>
+export type EntradaVenta = z.infer<typeof esquemaVenta>
+export type EntradaLineaVenta = z.infer<typeof esquemaLineaVenta>
+export type EntradaCobro = z.infer<typeof esquemaCobro>
+export type EntradaAbrirTurno = z.infer<typeof esquemaAbrirTurno>
+export type EntradaCerrarTurno = z.infer<typeof esquemaCerrarTurno>
+export type EntradaMovimientoCaja = z.infer<typeof esquemaMovimientoCaja>

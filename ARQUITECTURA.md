@@ -325,6 +325,57 @@ que alguien tiene que recordar actualizar en dos sitios.
 
 ---
 
+## 10.b Punto de venta: cómo se cierra una venta
+
+Una venta confirmada hace cuatro cosas que tienen que pasar juntas o no pasar:
+descontar el inventario, registrar los cobros, afectar el turno de caja y
+consumir el correlativo. **Todo ocurre dentro de una transacción.** Si algo
+falla, nada queda escrito: no existe el estado intermedio donde la mercancía
+salió pero el cobro no se registró, que es el que deja al negocio con dinero
+que nadie sabe dónde está.
+
+### Impuesto incluido contra impuesto añadido
+
+Es la causa más frecuente de descuadres en el libro de ventas:
+
+- **Añadido** (típico en factura): base 100, IVA 16 → total 116.
+- **Incluido** (típico en quiosco): total 116 → base 100, IVA 16.
+
+Aplicar 16 % sobre 116 daría 18,56 y el libro no cuadraría con lo cobrado. La
+configuración vive en `Impuesto.incluidoEnPrecio`, por producto, no en el
+código de ventas.
+
+### El correlativo se bloquea, no se calcula
+
+`SecuenciaOperativa` existe como tabla, y no como un `MAX(numero) + 1`, porque
+el máximo se calcula sobre filas que otra transacción todavía no confirmó: dos
+cajeros cobrando al mismo tiempo leerían el mismo máximo y emitirían dos
+tickets con el mismo número. La fila de la secuencia se bloquea con
+`FOR UPDATE` dentro de la misma transacción que crea el documento.
+
+### El IGTF lo causa el método de cobro, no la venta
+
+`MetodoPago.causaIGTF` marca los métodos en divisas. Así cambiar la política
+fiscal es editar una fila, no el motor de ventas — que es el requisito de tener
+la capa fiscal parametrizable.
+
+### Anular deja la caja sin diferencia
+
+Cada cobro genera un pago de reversa con el mismo monto y **la misma tasa**. El
+efectivo esperado del turno se deriva sumando los pagos, así que los negativos
+restan solos y el esperado vuelve a su valor anterior exacto. El inventario
+vuelve con una reversa valorada al costo original del movimiento, no al
+promedio de hoy, para que el resultado de un período ya cerrado no cambie.
+
+### El efectivo esperado se deriva, nunca se escribe
+
+`resumenTurno()` lo calcula: fondo inicial + cobros por métodos que entran a la
+gaveta + ingresos manuales − egresos. Los métodos que no entran a la gaveta
+(pago móvil, punto de venta) suman al total de cobros pero **no** al efectivo
+esperado, y se conciertan contra el banco.
+
+---
+
 ## 11. Estructura de carpetas
 
 ```
@@ -351,11 +402,23 @@ src/lib/
     inventario.ts                Kardex, costeo promedio, reversas, transacciones
     organizacion.ts              Organizaciones, sucursales, almacenes, equipo
     catalogo.ts                  Categorías, productos, variantes, precios, conversión
+    ventas.ts                    Venta atómica, cobro mixto, IGTF, anulación, margen
+    caja.ts                      Turnos, efectivo esperado derivado, arqueo, flujo de caja
   contabilidad/                  Motor fiscal heredado (22 módulos)
   auth.ts, auditoria.ts, db.ts
 
-src/app/api/                     Rutas (74+)
-tests/                           13 archivos, 132 pruebas
+src/app/api/
+  pos/buscar/                    Escaneo por código de barras y búsqueda del mostrador
+  ventas/                        Confirmar, consultar y anular ventas
+  caja/turnos/                   Abrir turno, resumen, cerrar con arqueo
+  caja/movimientos/              Ingresos y egresos de caja
+  ...                            Rutas heredadas del módulo contable
+
+scripts/
+  seed-quiosco.ts                Quiosco operable: npm run seed:quiosco
+  humo-pos.ts                    Prueba de humo del flujo completo contra la semilla
+
+tests/                           14 archivos, 171 pruebas
 ```
 
 ---
@@ -365,8 +428,8 @@ tests/                           13 archivos, 132 pruebas
 | Fase | Estado |
 |---|---|
 | **1 — Fundación**: auth, organizaciones, sucursales, usuarios y roles, catálogo, almacenes | Esquema completo, servicios de dominio y rutas de catálogo listos; faltan las rutas de organización/sucursal/almacén y la interfaz |
-| **2 — Inventario**: movimientos, kardex, costeo promedio, ajustes, alertas | Motor completo y probado; faltan tomas físicas y traslados a nivel de servicio |
-| **3 — Operación**: compras, ventas, POS, clientes, proveedores, caja | Esquema completo; servicios pendientes |
+| **2 — Inventario**: movimientos, kardex, costeo promedio, ajustes, alertas | ✅ Motor completo y probado; faltan tomas físicas y traslados a nivel de servicio |
+| **3 — Operación**: compras, ventas, POS, clientes, proveedores, caja | ✅ **Ventas, POS y caja completos, probados y con semilla operable.** Compras y proveedores: esquema listo, servicios pendientes |
 | **4 — Dinero**: gastos, CxC/CxP, bancos, flujo de caja | Esquema y vistas completos; servicios pendientes |
 | **5 — Inteligencia**: reportes, dashboard, rentabilidad, exportaciones | Dashboard y exportaciones heredadas funcionando |
 | **6 — Verticales**: restaurante, ropa, quiosco | Esquema completo; servicios pendientes |
@@ -378,10 +441,11 @@ tests/                           13 archivos, 132 pruebas
 |---|---|
 | Comprar el mismo producto a dos costos distintos da el promedio ponderado correcto | ✅ probado (`dinero.test.ts`) |
 | Un reporte del mes pasado muestra los mismos montos aunque cambie la tasa | ✅ probado |
-| Un cajero no puede ver costos ni márgenes por ninguna vía, incluida la API | ✅ probado (`permisos.test.ts`) |
-| El arqueo detecta y registra toda diferencia con justificación obligatoria | ✅ garantizado por `CHECK` en la base de datos |
+| Un cajero no puede ver costos ni márgenes por ninguna vía, incluida la API | ✅ probado en `permisos.test.ts` y en el POS real (`pos.test.ts`) |
+| El arqueo detecta y registra toda diferencia con justificación obligatoria | ✅ probado, y además garantizado por `CHECK` en la base de datos |
+| Una venta se cierra en menos de 10 segundos y nunca sin método de pago | ✅ probado: el motor rechaza cerrar sin cobro identificado |
 | Vender un plato descuenta los insumos de su receta y el costo coincide | ⏳ esquema listo, motor de recetas pendiente |
-| Anular una venta devuelve el inventario y ajusta la caja sin diferencia | ⏳ reversa de kardex lista, motor de ventas pendiente |
+| Anular una venta devuelve el inventario y ajusta la caja sin diferencia | ✅ probado (`pos.test.ts`) y verificado de punta a punta con `humo-pos.ts` |
 
 ---
 
@@ -397,6 +461,14 @@ Tres defectos del repositorio que contradecían los requisitos:
    para todo y escondía si el problema era de permisos, de datos o del
    servidor. Reemplazado por `manejarError()` en las rutas migradas; quedan
    rutas heredadas por migrar.
+4. **Los permisos se validaban solo en la capa de rutas.** Lo encontró la
+   prueba de humo: un cajero llamando `anularVenta()` directamente anulaba la
+   venta, porque el motor confiaba en que la ruta hubiera comprobado el
+   permiso. "Validar en el servidor" no puede significar "validar en las
+   rutas": un script de mantenimiento, una tarea programada o una ruta nueva
+   entran por detrás. Ahora cada motor comprueba sus propios permisos con
+   `exigirEnContexto()`, y hay pruebas de regresión que llaman a los motores
+   directamente con roles insuficientes.
 
 ---
 

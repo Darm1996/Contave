@@ -17,6 +17,7 @@
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
     "seed": "bun run scripts/seed.ts",
+    "seed:quiosco": "tsx scripts/seed-quiosco.ts",
     "super-admin": "bun run scripts/crear-super-admin.ts"
   },
   "dependencies": {
