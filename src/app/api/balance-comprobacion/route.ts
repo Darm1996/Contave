@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 // Balance de comprobación: saldos finales por cuenta
 export async function GET(req: NextRequest) {
@@ -36,8 +37,8 @@ export async function GET(req: NextRequest) {
         select: { debit: true, credit: true },
       })
       if (lineas.length === 0) continue
-      const totalDebit = lineas.reduce((s, l) => s + l.debit, 0)
-      const totalCredit = lineas.reduce((s, l) => s + l.credit, 0)
+      const totalDebit = lineas.reduce((s, l) => s + aNumero(l.debit), 0)
+      const totalCredit = lineas.reduce((s, l) => s + aNumero(l.credit), 0)
       // Saldo según naturaleza: deudora = débito - crédito, acreedora = crédito - débito
       const saldo = cuenta.naturaleza === 'DEUDORA'
         ? totalDebit - totalCredit

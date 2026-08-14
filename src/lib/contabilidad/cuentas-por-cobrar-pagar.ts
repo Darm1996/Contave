@@ -9,24 +9,25 @@
 
 import { db } from '@/lib/db'
 import { buscarCuentaPorUso, persistirAsiento, type LineaAsientoInput } from './asientos-engine'
-
-const round2 = (n: number) => Math.round(n * 100) / 100
+import { d, suma, resta, mult, div, redondear, esPositivo, mayor, menor, type Numerico, type Decimal } from '@/lib/nucleo/dinero'
 
 // Monto en Bs. que la factura genera como partida abierta (lo que se le debe
 // al proveedor o lo que nos debe el cliente), replicando el monto que
 // generarAsientoCompra/Venta postea a la cuenta de control.
 export function montoDeuda(factura: {
   tipo: string
-  total: number
-  totalAPagar: number
-  totalMonedaFuncional: number
-  montoIGTF: number | null
-}): number {
-  const mf = (n: number) =>
-    factura.totalMonedaFuncional && factura.total > 0 ? (n * factura.totalMonedaFuncional) / factura.total : n
-  if (factura.tipo === 'VENTA') return round2(mf(factura.total))
-  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : 0
-  return round2(mf(factura.totalAPagar) + igtfMF)
+  total: Numerico
+  totalAPagar: Numerico
+  totalMonedaFuncional: Numerico
+  montoIGTF: Numerico | null
+}): Decimal {
+  const mf = (n: Numerico): Decimal =>
+    esPositivo(factura.total) && esPositivo(factura.totalMonedaFuncional)
+      ? div(mult(n, factura.totalMonedaFuncional), factura.total)
+      : d(n)
+  if (factura.tipo === 'VENTA') return redondear(mf(factura.total))
+  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : d(0)
+  return redondear(suma(mf(factura.totalAPagar), igtfMF))
 }
 
 export interface PartidaAbierta {
@@ -38,9 +39,9 @@ export interface PartidaAbierta {
   ncf: string | null
   fechaEmision: Date
   fechaVencimiento: Date
-  deuda: number
-  montoPagado: number
-  saldo: number
+  deuda: Decimal
+  montoPagado: Decimal
+  saldo: Decimal
   estadoPago: string
   diasVencido: number
 }
@@ -58,7 +59,7 @@ async function listarPartidas(empresaId: string, tipo: 'VENTA' | 'COMPRA'): Prom
   const hoy = new Date()
   return facturas.map((f) => {
     const deuda = montoDeuda(f)
-    const saldo = round2(deuda - f.montoPagado)
+    const saldo = redondear(resta(deuda, f.montoPagado))
     const fechaVencimiento = new Date(f.fechaEmision)
     fechaVencimiento.setDate(fechaVencimiento.getDate() + diasCredito)
     const diasVencido = Math.floor((hoy.getTime() - fechaVencimiento.getTime()) / (1000 * 60 * 60 * 24))
@@ -77,7 +78,7 @@ async function listarPartidas(empresaId: string, tipo: 'VENTA' | 'COMPRA'): Prom
       estadoPago: f.estadoPago,
       diasVencido,
     }
-  }).filter((p) => p.saldo > 0.01)
+  }).filter((p) => mayor(p.saldo, '0.01'))
 }
 
 export function listarCxC(empresaId: string) {
@@ -89,30 +90,48 @@ export function listarCxP(empresaId: string) {
 }
 
 export interface AntiguedadSaldos {
-  corriente: number // no vencido
-  d1_30: number
-  d31_60: number
-  d61_90: number
-  d90mas: number
-  total: number
+  corriente: Decimal // no vencido
+  d1_30: Decimal
+  d31_60: Decimal
+  d61_90: Decimal
+  d90mas: Decimal
+  total: Decimal
 }
 
 export function calcularAntiguedad(partidas: PartidaAbierta[]): AntiguedadSaldos {
-  const r: AntiguedadSaldos = { corriente: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90mas: 0, total: 0 }
+  // Se acumula con precisión completa y se redondea una sola vez al cerrar
+  // cada tramo. Redondear en cada suma haría que los tramos no sumen el
+  // total, y una antigüedad de saldos que no cuadra con el total es
+  // inservible para cobrar.
+  let corriente = d(0)
+  let d1_30 = d(0)
+  let d31_60 = d(0)
+  let d61_90 = d(0)
+  let d90mas = d(0)
+  let total = d(0)
+
   for (const p of partidas) {
-    r.total = round2(r.total + p.saldo)
-    if (p.diasVencido <= 0) r.corriente = round2(r.corriente + p.saldo)
-    else if (p.diasVencido <= 30) r.d1_30 = round2(r.d1_30 + p.saldo)
-    else if (p.diasVencido <= 60) r.d31_60 = round2(r.d31_60 + p.saldo)
-    else if (p.diasVencido <= 90) r.d61_90 = round2(r.d61_90 + p.saldo)
-    else r.d90mas = round2(r.d90mas + p.saldo)
+    total = suma(total, p.saldo)
+    if (p.diasVencido <= 0) corriente = suma(corriente, p.saldo)
+    else if (p.diasVencido <= 30) d1_30 = suma(d1_30, p.saldo)
+    else if (p.diasVencido <= 60) d31_60 = suma(d31_60, p.saldo)
+    else if (p.diasVencido <= 90) d61_90 = suma(d61_90, p.saldo)
+    else d90mas = suma(d90mas, p.saldo)
   }
-  return r
+
+  return {
+    corriente: redondear(corriente),
+    d1_30: redondear(d1_30),
+    d31_60: redondear(d31_60),
+    d61_90: redondear(d61_90),
+    d90mas: redondear(d90mas),
+    total: redondear(total),
+  }
 }
 
 export interface RegistrarPagoInput {
   facturaId: string
-  monto: number
+  monto: Numerico
   fecha?: Date
   metodoPago: string
   referencia?: string
@@ -122,7 +141,7 @@ export interface RegistrarPagoInput {
 }
 
 export async function registrarPago(empresaId: string, input: RegistrarPagoInput) {
-  if (input.monto <= 0) throw new Error('El monto del pago debe ser mayor a cero')
+  if (!esPositivo(input.monto)) throw new Error('El monto del pago debe ser mayor a cero')
 
   const factura = await db.factura.findUnique({ where: { id: input.facturaId } })
   if (!factura || factura.empresaId !== empresaId) throw new Error('Factura no encontrada')
@@ -134,8 +153,8 @@ export async function registrarPago(empresaId: string, input: RegistrarPagoInput
   }
 
   const deuda = montoDeuda(factura)
-  const saldo = round2(deuda - factura.montoPagado)
-  if (input.monto > saldo + 0.01) {
+  const saldo = redondear(resta(deuda, factura.montoPagado))
+  if (mayor(input.monto, suma(saldo, '0.01'))) {
     throw new Error(`El monto excede el saldo pendiente (Bs. ${saldo.toFixed(2)})`)
   }
 
@@ -175,7 +194,7 @@ export async function registrarPago(empresaId: string, input: RegistrarPagoInput
       empresaId,
       facturaId: factura.id,
       userId: input.userId,
-      monto: input.monto,
+      monto: d(input.monto).toString(),
       fecha: input.fecha || new Date(),
       metodoPago: input.metodoPago,
       referencia: input.referencia,
@@ -184,11 +203,15 @@ export async function registrarPago(empresaId: string, input: RegistrarPagoInput
     },
   })
 
-  const nuevoMontoPagado = round2(factura.montoPagado + input.monto)
-  const nuevoEstado = nuevoMontoPagado >= deuda - 0.01 ? 'PAGADA' : nuevoMontoPagado > 0 ? 'PARCIAL' : 'PENDIENTE'
+  const nuevoMontoPagado = redondear(suma(factura.montoPagado, input.monto))
+  const nuevoEstado = !menor(nuevoMontoPagado, resta(deuda, '0.01'))
+    ? 'PAGADA'
+    : esPositivo(nuevoMontoPagado)
+      ? 'PARCIAL'
+      : 'PENDIENTE'
   await db.factura.update({
     where: { id: factura.id },
-    data: { montoPagado: nuevoMontoPagado, estadoPago: nuevoEstado },
+    data: { montoPagado: nuevoMontoPagado.toString(), estadoPago: nuevoEstado },
   })
 
   return pago

@@ -15,6 +15,7 @@
 import { db } from '@/lib/db'
 import { generarEstadoResultado } from './estados-financieros'
 import { UT_VIGENTE_BS } from './islr'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -85,14 +86,14 @@ export async function generarDeclaracionAnualISLR(
   ])
 
   const utilidadContable = estadoResultado.utilidadAntesISLR
-  const igtfNoDeducible = round2(facturasIGTF.reduce((s, f) => s + (f.montoIGTF || 0), 0))
+  const igtfNoDeducible = round2(facturasIGTF.reduce((s, f) => s + (aNumero(f.montoIGTF) || 0), 0))
   const partidasNoDeduciblesManual = round2(ajustes.partidasNoDeducibles || 0)
   const partidasExentas = round2(ajustes.partidasExentas || 0)
 
   const rentaNetaGravable = Math.max(round2(utilidadContable + igtfNoDeducible + partidasNoDeduciblesManual - partidasExentas), 0)
 
   const calculo = calcularISLRProgresivo(rentaNetaGravable)
-  const anticiposRetenciones = round2(facturasVentaConRetencion.reduce((s, f) => s + (f.montoRetencionISLR || 0), 0))
+  const anticiposRetenciones = round2(facturasVentaConRetencion.reduce((s, f) => s + (aNumero(f.montoRetencionISLR) || 0), 0))
 
   const islrPorPagar = round2(Math.max(calculo.impuestoBs - anticiposRetenciones, 0))
   const islrAFavor = round2(Math.max(anticiposRetenciones - calculo.impuestoBs, 0))

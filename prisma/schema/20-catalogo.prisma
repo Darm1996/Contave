@@ -1,0 +1,340 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  CATÁLOGO — unidades, categorías, productos, variantes, precios, impuestos
+// ═══════════════════════════════════════════════════════════════════════
+
+// ───────────────────────────────────────────────────────────────────────
+//  UNIDADES DE MEDIDA
+// ───────────────────────────────────────────────────────────────────────
+
+// Conversión por unidad base: cada unidad declara a qué unidad base
+// pertenece y cuántas unidades base equivale (factorBase). Así "caja de 24"
+// → factorBase 24 sobre "unidad", y "kg" → factorBase 1000 sobre "g".
+// Convertir entre dos unidades de la misma familia es multiplicar por el
+// factor de origen y dividir por el de destino: una sola regla, sin tablas
+// de pares.
+model UnidadMedida {
+  id             String  @id @default(cuid())
+  organizacionId String
+  codigo         String
+  nombre         String
+  tipo           String  @default("UNIDAD") // UNIDAD | PESO | VOLUMEN | LONGITUD
+  // Null = esta unidad ES la base de su familia (factorBase debe ser 1).
+  unidadBaseId   String?
+  factorBase     Decimal @default(1) @db.Decimal(18, 8)
+  // Cuántos decimales tiene sentido mostrar/aceptar para esta unidad. Una
+  // unidad de "unidades" no admite 0.5; un kg sí.
+  decimales      Int     @default(0)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion   @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  unidadBase   UnidadMedida?  @relation("UnidadBase", fields: [unidadBaseId], references: [id])
+  derivadas    UnidadMedida[] @relation("UnidadBase")
+
+  productosVenta  Producto[] @relation("UnidadVenta")
+  productosCompra Producto[] @relation("UnidadCompra")
+  recetaDetalles  RecetaDetalle[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, codigo])
+  @@index([organizacionId, tipo])
+  @@map("unidades_medida")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  CATEGORÍAS (jerárquicas)
+// ───────────────────────────────────────────────────────────────────────
+
+model Categoria {
+  id             String  @id @default(cuid())
+  organizacionId String
+  nombre         String
+  padreId        String?
+  // Ruta materializada ("Bebidas/Gaseosas/Retornables") para poder filtrar
+  // un árbol completo con un LIKE por prefijo en vez de consultas
+  // recursivas en cada reporte.
+  ruta           String  @default("")
+  nivel          Int     @default(1)
+  orden          Int     @default(0)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  padre        Categoria?   @relation("CategoriaPadre", fields: [padreId], references: [id])
+  hijas        Categoria[]  @relation("CategoriaPadre")
+  productos    Producto[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, padreId, nombre])
+  @@index([organizacionId, ruta])
+  @@map("categorias")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  IMPUESTOS (capa fiscal parametrizable)
+// ───────────────────────────────────────────────────────────────────────
+
+// El impuesto es un dato del catálogo, no una constante en el código de
+// ventas. Cambiar la alícuota general del IVA es editar una fila; los
+// documentos ya emitidos conservan la tasa que se les aplicó.
+model Impuesto {
+  id             String  @id @default(cuid())
+  organizacionId String
+  nombre         String
+  tipo           String  @default("IVA") // IVA | IGTF | OTRO
+  clasificacion  String  @default("GENERAL") // GENERAL | REDUCIDA | ADICIONAL | EXENTA | NO_GRAVADA | EXONERADA
+  tasa           Decimal @default(0) @db.Decimal(7, 4)
+  // Si el precio de lista ya lleva el impuesto dentro (común en quiosco) se
+  // desglosa hacia atrás; si no, se suma. Confundir esto es la causa número
+  // uno de descuadres en el libro de ventas.
+  incluidoEnPrecio Boolean @default(false)
+  esPredeterminado Boolean @default(false)
+  activo         Boolean @default(true)
+
+  organizacion   Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  productos      Producto[]
+  ventaDetalles  VentaDetalle[]
+  compraDetalles CompraDetalle[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@index([organizacionId, tipo, activo])
+  @@map("impuestos")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  PRODUCTOS Y VARIANTES
+// ───────────────────────────────────────────────────────────────────────
+
+// Un Producto es el concepto comercial ("Camisa Oxford", "Pizza Margarita",
+// "Coca-Cola 2L"). Las EXISTENCIAS Y EL COSTO NO VIVEN AQUÍ: viven en
+// Variante × Almacen (tabla Existencia).
+//
+// Decisión con consecuencia de negocio: incluso un producto sin variantes
+// declaradas tiene exactamente una Variante (esPredeterminada = true). Se
+// hace así para que exista UN SOLO camino de descuento de stock. La
+// alternativa —stock en Producto cuando no hay variantes y en Variante
+// cuando sí— produce dos caminos, y tarde o temprano uno de los dos deja de
+// descontar. Un solo camino es la única forma de garantizar que el
+// inventario nunca quede descuadrado.
+model Producto {
+  id             String  @id @default(cuid())
+  organizacionId String
+  categoriaId    String?
+  nombre         String
+  descripcion    String?
+  // PRODUCTO se vende y se almacena. SERVICIO se vende y no descuenta stock.
+  // INSUMO no se vende: se consume por receta. COMBO se vende y descuenta
+  // los componentes de su receta.
+  tipo           String  @default("PRODUCTO") // PRODUCTO | SERVICIO | COMBO | INSUMO
+
+  // Códigos. El SKU del producto es la raíz; cada variante tiene el suyo.
+  sku             String
+  codigoProveedor String?
+
+  // Unidad en la que se vende y unidad en la que se compra. Cuando difieren
+  // (se compra la caja, se vende la unidad) el fraccionamiento se resuelve
+  // con el factor de conversión entre ambas unidades — no con un número
+  // suelto que hay que recordar actualizar.
+  unidadVentaId  String
+  unidadCompraId String?
+
+  impuestoId String?
+
+  // Comportamientos configurables por rubro.
+  controlaStock  Boolean @default(true)
+  manejaLotes    Boolean @default(false)
+  tieneVariantes Boolean @default(false)
+  // Reposición: alertas y sugerencia de compra.
+  stockMinimo    Decimal @default(0) @db.Decimal(18, 3)
+  puntoReorden   Decimal @default(0) @db.Decimal(18, 3)
+
+  // Ropa: temporada/colección para marcar mercancía de temporada anterior.
+  temporadaId String?
+
+  // Enlace contable opcional: cuenta de inventario donde se activa el costo.
+  cuentaInventarioId String?
+
+  imagenUrl String?
+  activo    Boolean @default(true)
+
+  organizacion Organizacion  @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  categoria    Categoria?    @relation(fields: [categoriaId], references: [id])
+  unidadVenta  UnidadMedida  @relation("UnidadVenta", fields: [unidadVentaId], references: [id])
+  unidadCompra UnidadMedida? @relation("UnidadCompra", fields: [unidadCompraId], references: [id])
+  impuesto     Impuesto?     @relation(fields: [impuestoId], references: [id])
+  temporada    Temporada?    @relation(fields: [temporadaId], references: [id])
+
+  variantes         Variante[]
+  recetas           Receta[]
+  gruposModificador GrupoModificadorProducto[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, sku])
+  @@index([organizacionId, activo, nombre])
+  @@index([organizacionId, categoriaId])
+  @@index([organizacionId, tipo])
+  @@map("productos")
+}
+
+// Combinación concreta y vendible: "Camisa Oxford / M / Azul". Es la unidad
+// sobre la que se lleva stock, costo y precio.
+model Variante {
+  id             String  @id @default(cuid())
+  organizacionId String
+  productoId     String
+  // Nombre legible de la combinación ("M / Azul"). Se calcula al crear.
+  nombre         String  @default("")
+  sku            String
+  codigoBarras   String?
+  esPredeterminada Boolean @default(false)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  producto     Producto     @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  valores        VarianteValor[]
+  existencias    Existencia[]
+  lotes          Lote[]
+  movimientos    MovimientoInventario[]
+  precios        Precio[]
+  ventaDetalles  VentaDetalle[]
+  compraDetalles CompraDetalle[]
+  ordenDetalles  OrdenCompraDetalle[]
+  recetaDetalles RecetaDetalle[]
+  tomaDetalles   TomaInventarioDetalle[]
+  trasladoDetalles TrasladoDetalle[]
+  comandaDetalles  ComandaDetalle[]
+  apartadoDetalles ApartadoDetalle[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, sku])
+  // El código de barras debe ser único dentro de la organización: es la
+  // clave con la que el POS resuelve un escaneo a un único producto.
+  @@unique([organizacionId, codigoBarras])
+  @@index([productoId, activo])
+  @@map("variantes")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  ATRIBUTOS DE VARIANTE (talla, color, sabor, presentación)
+// ───────────────────────────────────────────────────────────────────────
+
+model Atributo {
+  id             String  @id @default(cuid())
+  organizacionId String
+  nombre         String
+  orden          Int     @default(0)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  valores      AtributoValor[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizacionId, nombre])
+  @@map("atributos")
+}
+
+model AtributoValor {
+  id          String  @id @default(cuid())
+  atributoId  String
+  valor       String
+  // Orden explícito para que las tallas se muestren S, M, L, XL y no
+  // alfabéticamente (que daría L, M, S, XL).
+  orden       Int     @default(0)
+  activo      Boolean @default(true)
+
+  atributo  Atributo        @relation(fields: [atributoId], references: [id], onDelete: Cascade)
+  variantes VarianteValor[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([atributoId, valor])
+  @@map("atributos_valores")
+}
+
+model VarianteValor {
+  varianteId      String
+  atributoValorId String
+
+  variante      Variante      @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  atributoValor AtributoValor @relation(fields: [atributoValorId], references: [id], onDelete: Cascade)
+
+  @@id([varianteId, atributoValorId])
+  @@index([atributoValorId])
+  @@map("variantes_valores")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  LISTAS DE PRECIOS Y PRECIOS CON VIGENCIA
+// ───────────────────────────────────────────────────────────────────────
+
+model ListaPrecio {
+  id             String  @id @default(cuid())
+  organizacionId String
+  nombre         String
+  tipo           String  @default("DETAL") // DETAL | MAYOR | DELIVERY | ESPECIAL
+  moneda         String  @default("VES")
+  esPredeterminada Boolean @default(false)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  precios      Precio[]
+  ventas       Venta[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, nombre])
+  @@map("listas_precios")
+}
+
+// Precio de una variante en una lista, con vigencia. No se edita un precio:
+// se cierra la vigencia del anterior y se abre uno nuevo. Así una venta de
+// la semana pasada se puede auditar contra el precio que regía ese día.
+model Precio {
+  id             String    @id @default(cuid())
+  organizacionId String
+  listaPrecioId  String
+  varianteId     String
+  monto          Decimal   @db.Decimal(18, 4)
+  moneda         String    @default("VES")
+  // Precio por volumen: aplica desde esta cantidad en adelante.
+  cantidadMinima Decimal   @default(1) @db.Decimal(18, 3)
+  vigenciaDesde  DateTime  @default(now())
+  vigenciaHasta  DateTime?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  listaPrecio  ListaPrecio  @relation(fields: [listaPrecioId], references: [id], onDelete: Cascade)
+  variante     Variante     @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@index([organizacionId, varianteId, listaPrecioId, vigenciaDesde])
+  @@index([listaPrecioId, vigenciaHasta])
+  @@map("precios")
+}

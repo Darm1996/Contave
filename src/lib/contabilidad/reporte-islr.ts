@@ -4,6 +4,7 @@
 
 import { db } from '@/lib/db'
 import { TARIFAS_ISLR, buscarTarifaISLR } from './islr'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export interface FilaReporteISLR {
   fecha: Date
@@ -75,10 +76,10 @@ export async function generarReporteISLRMensual(
       nombreBeneficiario: f.nombreContraparte,
       concepto: tarifa?.concepto || 'Sin especificar',
       tarifaCodigo: f.tarifaISLRCodigo || '',
-      baseImponible: f.baseRetencionISLR || 0,
-      porcentajeRetencion: f.porcentajeRetencionISLR || 0,
-      montoRetenido: f.montoRetencionISLR || 0,
-      montoTotalOperacion: f.total,
+      baseImponible: aNumero(f.baseRetencionISLR) || 0,
+      porcentajeRetencion: aNumero(f.porcentajeRetencionISLR) || 0,
+      montoRetenido: aNumero(f.montoRetencionISLR) || 0,
+      montoTotalOperacion: aNumero(f.total),
     })
   }
 

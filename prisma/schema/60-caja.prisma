@@ -1,0 +1,201 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  CAJA Y BANCOS — turnos, arqueo, movimientos, cuentas bancarias
+// ═══════════════════════════════════════════════════════════════════════
+
+model Caja {
+  id             String  @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  codigo         String
+  nombre         String
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+
+  sesiones SesionCaja[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, codigo])
+  @@index([organizacionId, sucursalId, activo])
+  @@map("cajas")
+}
+
+// Turno de caja: lo abre un usuario con un fondo inicial y lo cierra con un
+// arqueo. Ninguna venta puede cobrarse en efectivo sin una sesión abierta —
+// si no, el efectivo no tiene dueño ni turno y el arqueo es imposible.
+model SesionCaja {
+  id             String    @id @default(cuid())
+  organizacionId String
+  cajaId         String
+  usuarioId      String
+  estado         String    @default("ABIERTA") // ABIERTA | CERRADA
+  fechaApertura  DateTime  @default(now())
+  fechaCierre    DateTime?
+
+  // Fondo con el que se abre el turno.
+  montoInicial Decimal @db.Decimal(18, 4)
+  moneda       String  @default("VES")
+
+  // Totales calculados al cerrar. Se persisten para que el cierre sea un
+  // hecho histórico y no un cálculo que cambie si luego se corrige algo.
+  totalVentas      Decimal @default(0) @db.Decimal(18, 4)
+  totalCobros      Decimal @default(0) @db.Decimal(18, 4)
+  totalIngresos    Decimal @default(0) @db.Decimal(18, 4)
+  totalEgresos     Decimal @default(0) @db.Decimal(18, 4)
+  efectivoEsperado Decimal @default(0) @db.Decimal(18, 4)
+
+  observaciones String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  caja         Caja         @relation(fields: [cajaId], references: [id])
+  usuario      User         @relation(fields: [usuarioId], references: [id])
+
+  ventas      Venta[]
+  pagos       Pago[]
+  movimientos MovimientoCaja[]
+  arqueo      Arqueo?
+  abonos      ApartadoAbono[]
+  gastos      Gasto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizacionId, estado])
+  @@index([cajaId, fechaApertura])
+  @@map("sesiones_caja")
+}
+
+// Ingresos y egresos de caja que no son ventas ni cobros: préstamo del
+// dueño, pago de un flete en efectivo, envío de efectivo a la bóveda.
+model MovimientoCaja {
+  id           String   @id @default(cuid())
+  sesionCajaId String
+  tipo         String // INGRESO | EGRESO | TRASPASO_BOVEDA | FONDO_ADICIONAL
+  concepto     String
+  monto        Decimal  @db.Decimal(18, 4)
+  moneda       String   @default("VES")
+  tasaCambio   Decimal? @db.Decimal(18, 8)
+  referencia   String?
+  usuarioId    String?
+  fecha        DateTime @default(now())
+
+  sesionCaja SesionCaja @relation(fields: [sesionCajaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([sesionCajaId, fecha])
+  @@map("movimientos_caja")
+}
+
+// Arqueo: efectivo esperado contra efectivo contado. La diferencia se
+// registra SIEMPRE, y si existe, la justificación es obligatoria (se valida
+// en el servidor). Un arqueo que "cuadra solo" porque el sistema ajustó el
+// esperado no es un arqueo.
+model Arqueo {
+  id           String @id @default(cuid())
+  sesionCajaId String @unique
+  usuarioId    String
+
+  efectivoEsperado Decimal @db.Decimal(18, 4)
+  efectivoContado  Decimal @db.Decimal(18, 4)
+  // Contado menos esperado. Negativo = falta dinero, positivo = sobra.
+  diferencia       Decimal @db.Decimal(18, 4)
+  justificacion    String?
+  moneda           String  @default("VES")
+
+  fecha DateTime @default(now())
+
+  sesionCaja SesionCaja      @relation(fields: [sesionCajaId], references: [id], onDelete: Cascade)
+  usuario    User            @relation(fields: [usuarioId], references: [id])
+  detalles   ArqueoDetalle[]
+
+  createdAt DateTime @default(now())
+
+  @@map("arqueos")
+}
+
+// Desglose del arqueo por método de cobro: el efectivo se cuenta, los
+// demás métodos se comparan contra lo registrado para conciliar el punto de
+// venta y las transferencias.
+model ArqueoDetalle {
+  id           String  @id @default(cuid())
+  arqueoId     String
+  metodoPagoId String
+  montoEsperado Decimal @db.Decimal(18, 4)
+  montoContado  Decimal @db.Decimal(18, 4)
+  diferencia    Decimal @db.Decimal(18, 4)
+  moneda        String  @default("VES")
+
+  arqueo Arqueo     @relation(fields: [arqueoId], references: [id], onDelete: Cascade)
+  metodo MetodoPago @relation(fields: [metodoPagoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([arqueoId, metodoPagoId])
+  @@map("arqueos_detalle")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  BANCOS
+// ───────────────────────────────────────────────────────────────────────
+
+model CuentaBancaria {
+  id             String  @id @default(cuid())
+  organizacionId String
+  banco          String
+  numeroCuenta   String
+  tipo           String  @default("CORRIENTE") // CORRIENTE | AHORRO | DIVISA
+  moneda         String  @default("VES")
+  saldoInicial   Decimal @default(0) @db.Decimal(18, 4)
+  // Saldo corriente cacheado. La verdad es la suma de movimientos.
+  saldoActual    Decimal @default(0) @db.Decimal(18, 4)
+  // Cuenta contable asociada, para que los movimientos se reflejen en el
+  // libro mayor sin capturarlos dos veces.
+  cuentaId       String?
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+
+  movimientos MovimientoBancario[]
+  metodosPago MetodoPago[]
+  gastos      Gasto[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, banco, numeroCuenta])
+  @@map("cuentas_bancarias")
+}
+
+model MovimientoBancario {
+  id               String   @id @default(cuid())
+  cuentaBancariaId String
+  tipo             String // DEPOSITO | RETIRO | TRANSFERENCIA_ENTRADA | TRANSFERENCIA_SALIDA | COMISION | NOTA_CREDITO | NOTA_DEBITO
+  concepto         String
+  monto            Decimal  @db.Decimal(18, 4)
+  moneda           String   @default("VES")
+  tasaCambio       Decimal? @db.Decimal(18, 8)
+  referencia       String?
+  fecha            DateTime @default(now())
+  conciliado       Boolean  @default(false)
+  // Contraparte cuando el movimiento es una transferencia entre dos cuentas
+  // propias: los dos movimientos se apuntan mutuamente.
+  contraparteId    String?  @unique
+
+  cuentaBancaria CuentaBancaria      @relation(fields: [cuentaBancariaId], references: [id], onDelete: Cascade)
+  contraparte    MovimientoBancario? @relation("Transferencia", fields: [contraparteId], references: [id])
+  reverso        MovimientoBancario? @relation("Transferencia")
+
+  createdAt DateTime @default(now())
+
+  @@index([cuentaBancariaId, fecha])
+  @@index([cuentaBancariaId, conciliado])
+  @@map("movimientos_bancarios")
+}

@@ -1,0 +1,361 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  VENTAS — clientes, métodos de cobro, ventas, pagos, apartados
+// ═══════════════════════════════════════════════════════════════════════
+
+model Cliente {
+  id        String  @id @default(cuid())
+  empresaId String
+  // Nullable en el mundo operativo: el POS de un quiosco cobra a "cliente
+  // de paso" sin cédula. Se exige identificación solo al emitir factura
+  // fiscal o al otorgar crédito, no para poder vender.
+  organizacionId String?
+  rif       String?
+  nombre    String
+  direccion String?
+  telefono  String?
+  email     String?
+
+  // Crédito: límite y plazo. La venta a crédito se bloquea en el servidor
+  // si el saldo pendiente más la venta nueva superan el límite.
+  limiteCredito Decimal @default(0) @db.Decimal(18, 4)
+  diasCredito   Int     @default(0)
+  activo        Boolean @default(true)
+
+  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  organizacion Organizacion? @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+
+  ventas    Venta[]
+  apartados Apartado[]
+  comandas  Comanda[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([empresaId, rif])
+  @@index([organizacionId, activo, nombre])
+  @@map("clientes")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  MÉTODOS DE COBRO
+// ───────────────────────────────────────────────────────────────────────
+
+// Cada forma de cobro es una fila configurable, no un enum en el código,
+// porque el arqueo y la conciliación dependen de saber si el método entra
+// en efectivo a la caja física o cae en una cuenta bancaria.
+model MetodoPago {
+  id             String  @id @default(cuid())
+  organizacionId String
+  codigo         String
+  nombre         String
+  tipo           String  @default("EFECTIVO") // EFECTIVO | TARJETA | TRANSFERENCIA | PAGO_MOVIL | DIVISA | CRIPTO | CREDITO | OTRO
+  moneda         String  @default("VES")
+  // Si es true, el monto se cuenta en el arqueo físico de la caja. Si es
+  // false, se concilia contra el banco.
+  afectaCajaFisica Boolean @default(true)
+  cuentaBancariaId String?
+  // IGTF: los pagos en divisas causan el impuesto a las grandes
+  // transacciones financieras. Marcarlo aquí evita cablearlo en la venta.
+  causaIGTF      Boolean @default(false)
+  // Comisión que cobra el medio (punto de venta, pasarela). Es un gasto
+  // financiero, no un descuento al cliente.
+  comisionPorcentaje Decimal @default(0) @db.Decimal(7, 4)
+  requiereReferencia Boolean @default(false)
+  activo         Boolean @default(true)
+  orden          Int     @default(0)
+
+  organizacion   Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  cuentaBancaria CuentaBancaria? @relation(fields: [cuentaBancariaId], references: [id])
+
+  pagos          Pago[]
+  arqueoDetalles ArqueoDetalle[]
+  abonos         ApartadoAbono[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, codigo])
+  @@index([organizacionId, activo, orden])
+  @@map("metodos_pago")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  VENTA
+// ───────────────────────────────────────────────────────────────────────
+
+// Una venta CONFIRMADA es inmutable: no se edita y no se borra. Se ANULA
+// (con reversa de inventario y de caja) o se emite una nota de crédito que
+// la afecta parcialmente. El estado BORRADOR existe solo para el carrito
+// abierto del POS, que todavía no descontó nada.
+model Venta {
+  id             String @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  almacenId      String
+  clienteId      String?
+  usuarioId      String
+  sesionCajaId   String?
+  listaPrecioId  String?
+
+  // Tipo de documento y correlativo. La serie separa numeraciones (por
+  // sucursal o por caja) sin romper el correlativo de cada una.
+  tipoDocumento String @default("TICKET") // TICKET | NOTA_ENTREGA | FACTURA | NOTA_CREDITO
+  serie         String @default("A")
+  numero        Int
+
+  estado String   @default("BORRADOR") // BORRADOR | CONFIRMADA | ANULADA
+  fecha  DateTime @default(now())
+
+  // Canal, para el vertical de restaurante y para reportes de delivery.
+  canal String @default("MOSTRADOR") // MOSTRADOR | SALON | LLEVAR | DELIVERY
+
+  moneda     String   @default("VES")
+  tasaCambio Decimal? @db.Decimal(18, 8)
+
+  subtotal       Decimal @default(0) @db.Decimal(18, 4)
+  descuentoTotal Decimal @default(0) @db.Decimal(18, 4)
+  impuestoTotal  Decimal @default(0) @db.Decimal(18, 4)
+  igtfTotal      Decimal @default(0) @db.Decimal(18, 4)
+  propina        Decimal @default(0) @db.Decimal(18, 4)
+  // Ajuste por redondeo del total, aplicado una sola vez al cerrar. Se
+  // guarda explícito para que la suma de líneas más impuestos menos
+  // descuentos más este ajuste dé exactamente el total cobrado.
+  ajusteRedondeo Decimal @default(0) @db.Decimal(18, 4)
+  total          Decimal @default(0) @db.Decimal(18, 4)
+  totalMonedaFuncional Decimal @default(0) @db.Decimal(18, 4)
+  // Costo total de la mercancía vendida, congelado al confirmar. Permite
+  // calcular margen sin recorrer el kardex, y sin que un cambio de costo
+  // posterior altere la rentabilidad histórica.
+  costoTotal Decimal @default(0) @db.Decimal(18, 4)
+
+  montoPagado Decimal @default(0) @db.Decimal(18, 4)
+  estadoPago  String  @default("PENDIENTE") // PENDIENTE | PARCIAL | PAGADA
+
+  // Documento fiscal emitido (alimenta el libro de ventas).
+  facturaId String? @unique
+  // Venta que esta anula o devuelve.
+  ventaOrigenId String?
+  motivoAnulacion String?
+  anuladaPorId    String?
+  anuladaEn       DateTime?
+
+  mesaId    String?
+  comandaId String? @unique
+
+  notas String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal     @relation(fields: [sucursalId], references: [id])
+  almacen      Almacen      @relation(fields: [almacenId], references: [id])
+  cliente      Cliente?     @relation(fields: [clienteId], references: [id])
+  usuario      User         @relation(fields: [usuarioId], references: [id])
+  sesionCaja   SesionCaja?  @relation(fields: [sesionCajaId], references: [id])
+  listaPrecio  ListaPrecio? @relation(fields: [listaPrecioId], references: [id])
+  factura      Factura?     @relation(fields: [facturaId], references: [id])
+  mesa         Mesa?        @relation(fields: [mesaId], references: [id])
+  comanda      Comanda?     @relation(fields: [comandaId], references: [id])
+  ventaOrigen  Venta?       @relation("DevolucionVenta", fields: [ventaOrigenId], references: [id])
+  devoluciones Venta[]      @relation("DevolucionVenta")
+
+  detalles    VentaDetalle[]
+  pagos       Pago[]
+  movimientos MovimientoInventario[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, tipoDocumento, serie, numero])
+  @@index([organizacionId, fecha])
+  @@index([organizacionId, estado, fecha])
+  @@index([organizacionId, sucursalId, fecha])
+  @@index([clienteId, estadoPago])
+  @@index([sesionCajaId])
+  @@map("ventas")
+}
+
+model VentaDetalle {
+  id         String @id @default(cuid())
+  ventaId    String
+  varianteId String
+  // Descripción congelada: si el producto se renombra, el ticket viejo
+  // sigue diciendo lo que se vendió ese día.
+  descripcion String
+
+  cantidad       Decimal @db.Decimal(18, 3)
+  precioUnitario Decimal @db.Decimal(18, 4)
+  descuentoMonto Decimal @default(0) @db.Decimal(18, 4)
+  // Quién autorizó el descuento, cuando excede lo que el cajero puede dar
+  // por sí mismo. Sin este campo, "el descuento lo puso el sistema".
+  autorizadoPorId String?
+
+  impuestoId    String?
+  impuestoTasa  Decimal @default(0) @db.Decimal(7, 4)
+  impuestoMonto Decimal @default(0) @db.Decimal(18, 4)
+
+  // Costo unitario congelado en el momento de la venta. Es la base del
+  // margen y no se vuelve a tocar nunca.
+  costoUnitario Decimal @default(0) @db.Decimal(18, 6)
+  total         Decimal @db.Decimal(18, 4)
+
+  notas String?
+
+  venta    Venta     @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  variante Variante  @relation(fields: [varianteId], references: [id])
+  impuesto Impuesto? @relation(fields: [impuestoId], references: [id])
+
+  modificadores VentaDetalleModificador[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ventaId])
+  @@index([varianteId])
+  @@map("ventas_detalle")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  PAGOS
+// ───────────────────────────────────────────────────────────────────────
+
+// Subledger único de cobros y pagos. Cubre los tres casos con las mismas
+// reglas: cobro de una venta, pago de una compra, y abono a una factura
+// contable heredada. Tener un solo subledger es lo que permite que caja,
+// cuentas por cobrar y cuentas por pagar cuadren entre sí; con tablas
+// separadas por caso siempre queda una que nadie actualiza.
+model Pago {
+  id        String @id @default(cuid())
+  empresaId String
+  organizacionId String?
+  // Exactamente uno de estos tres debe estar presente. Se valida en la capa
+  // de servicio (Postgres no expresa "exactamente uno de N" sin un CHECK,
+  // y el CHECK se añade en la migración).
+  facturaId String?
+  ventaId   String?
+  compraId  String?
+
+  userId String
+  monto  Decimal @db.Decimal(18, 4)
+
+  // Multimoneda: monto en la moneda con la que se pagó, tasa aplicada y
+  // equivalente funcional. El equivalente queda congelado.
+  moneda               String   @default("VES")
+  tasaCambio           Decimal? @db.Decimal(18, 8)
+  montoMonedaFuncional Decimal  @default(0) @db.Decimal(18, 4)
+
+  fecha DateTime @default(now())
+  // Etiqueta heredada del método (el motor contable la usa). La autoridad
+  // en el mundo operativo es metodoPagoId.
+  metodoPago   String  @default("TRANSFERENCIA")
+  metodoPagoId String?
+  referencia   String?
+
+  // IGTF causado por este pago, cuando el método es en divisas.
+  montoIGTF Decimal @default(0) @db.Decimal(18, 4)
+
+  sesionCajaId String?
+  cuentaId     String? // cuenta contable de banco/caja, si se generó asiento
+  asientoId    String? @unique
+  // Reversa de un pago, para anulaciones. No se borran pagos.
+  pagoReversadoId String? @unique
+
+  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  organizacion Organizacion? @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  factura      Factura?      @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  venta        Venta?        @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  compra       Compra?       @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  usuario      User          @relation(fields: [userId], references: [id])
+  metodo       MetodoPago?   @relation(fields: [metodoPagoId], references: [id])
+  sesionCaja   SesionCaja?   @relation(fields: [sesionCajaId], references: [id])
+
+  pagoReversado Pago? @relation("ReversaPago", fields: [pagoReversadoId], references: [id])
+  reversa       Pago? @relation("ReversaPago")
+
+  createdAt DateTime @default(now())
+
+  @@index([facturaId])
+  @@index([ventaId])
+  @@index([compraId])
+  @@index([empresaId, fecha])
+  @@index([sesionCajaId])
+  @@map("pagos")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  APARTADOS / RESERVAS (vertical ropa, también útil en general)
+// ───────────────────────────────────────────────────────────────────────
+
+// Reserva con abonos. La mercancía apartada NO sale del inventario: se
+// marca como reservada (Existencia.cantidadReservada) para que no se venda
+// dos veces, y sale solo al concretar la venta.
+model Apartado {
+  id             String   @id @default(cuid())
+  organizacionId String
+  clienteId      String
+  numero         Int
+  estado         String   @default("ABIERTO") // ABIERTO | CONCRETADO | VENCIDO | ANULADO
+  fecha          DateTime @default(now())
+  fechaVencimiento DateTime?
+  moneda         String   @default("VES")
+  total          Decimal  @default(0) @db.Decimal(18, 4)
+  montoAbonado   Decimal  @default(0) @db.Decimal(18, 4)
+  ventaId        String?
+  notas          String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  cliente      Cliente      @relation(fields: [clienteId], references: [id])
+
+  detalles ApartadoDetalle[]
+  abonos   ApartadoAbono[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, estado])
+  @@map("apartados")
+}
+
+model ApartadoDetalle {
+  id         String  @id @default(cuid())
+  apartadoId String
+  varianteId String
+  cantidad   Decimal @db.Decimal(18, 3)
+  precioUnitario Decimal @db.Decimal(18, 4)
+  total      Decimal @db.Decimal(18, 4)
+
+  apartado Apartado @relation(fields: [apartadoId], references: [id], onDelete: Cascade)
+  variante Variante @relation(fields: [varianteId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([apartadoId, varianteId])
+  @@map("apartados_detalle")
+}
+
+model ApartadoAbono {
+  id           String   @id @default(cuid())
+  apartadoId   String
+  metodoPagoId String?
+  monto        Decimal  @db.Decimal(18, 4)
+  moneda       String   @default("VES")
+  tasaCambio   Decimal? @db.Decimal(18, 8)
+  fecha        DateTime @default(now())
+  referencia   String?
+  sesionCajaId String?
+
+  apartado   Apartado    @relation(fields: [apartadoId], references: [id], onDelete: Cascade)
+  metodo     MetodoPago? @relation(fields: [metodoPagoId], references: [id])
+  sesionCaja SesionCaja? @relation(fields: [sesionCajaId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([apartadoId])
+  @@map("apartados_abonos")
+}

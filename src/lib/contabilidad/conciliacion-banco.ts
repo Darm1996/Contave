@@ -2,6 +2,7 @@
 // Permite cargar movimientos del extracto bancario y compararlos con los asientos contables
 
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export interface MovimientoBancoInput {
   fecha: string | Date
@@ -46,7 +47,7 @@ export async function crearOActualizarConciliacion(
     },
     select: { debit: true, credit: true },
   })
-  const saldoInicialLibro = lineasAntes.reduce((s, l) => s + l.debit - l.credit, 0)
+  const saldoInicialLibro = lineasAntes.reduce((s, l) => s + aNumero(l.debit) - aNumero(l.credit), 0)
 
   // Calcular saldo final del libro (saldo al cierre del mes)
   const lineasMes = await db.asientoLinea.findMany({
@@ -56,7 +57,7 @@ export async function crearOActualizarConciliacion(
     },
     select: { debit: true, credit: true },
   })
-  const movimientosLibro = lineasMes.reduce((s, l) => s + l.debit - l.credit, 0)
+  const movimientosLibro = lineasMes.reduce((s, l) => s + aNumero(l.debit) - aNumero(l.credit), 0)
   const saldoFinalLibro = saldoInicialLibro + movimientosLibro
 
   // Upsert conciliación
@@ -182,15 +183,15 @@ export async function recalcularDiferencias(conciliacionId: string) {
   // Calcular partidas pendientes (movimientos no conciliados)
   const noConciliados = conc.movimientos.filter((m) => !m.conciliado)
   const depositosEnTransito = noConciliados
-    .filter((m) => m.monto > 0)
-    .reduce((s, m) => s + m.monto, 0)
+    .filter((m) => aNumero(m.monto) > 0)
+    .reduce((s, m) => s + aNumero(m.monto), 0)
   const chequesPendientes = noConciliados
-    .filter((m) => m.monto < 0)
-    .reduce((s, m) => s + Math.abs(m.monto), 0)
+    .filter((m) => aNumero(m.monto) < 0)
+    .reduce((s, m) => s + Math.abs(aNumero(m.monto)), 0)
 
   // Diferencia = (saldoFinalBanco + depositosEnTransito - chequesPendientes) - saldoFinalLibro
-  const saldoBancoAjustado = conc.saldoFinalBanco + depositosEnTransito - chequesPendientes
-  const diferencia = saldoBancoAjustado - conc.saldoFinalLibro
+  const saldoBancoAjustado = aNumero(conc.saldoFinalBanco) + depositosEnTransito - chequesPendientes
+  const diferencia = saldoBancoAjustado - aNumero(conc.saldoFinalLibro)
 
   // Buscar también partidas en el libro que no están en el banco
   // (notas de crédito/débito contabilizadas pero no reflejadas en el banco)
@@ -212,11 +213,11 @@ export async function recalcularDiferencias(conciliacionId: string) {
     if (!movRelacionado) lineasNoConciliadas.push(l)
   }
   const notasCredito = lineasNoConciliadas
-    .filter((l) => l.credit > 0)
-    .reduce((s, l) => s + l.credit, 0)
+    .filter((l) => aNumero(l.credit) > 0)
+    .reduce((s, l) => s + aNumero(l.credit), 0)
   const notasDebito = lineasNoConciliadas
-    .filter((l) => l.debit > 0)
-    .reduce((s, l) => s + l.debit, 0)
+    .filter((l) => aNumero(l.debit) > 0)
+    .reduce((s, l) => s + aNumero(l.debit), 0)
 
   const diferenciaFinal = diferencia - notasCredito + notasDebito
   const cuadra = Math.abs(diferenciaFinal) < 0.01

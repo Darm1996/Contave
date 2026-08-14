@@ -14,6 +14,7 @@
 
 import { db } from '@/lib/db'
 import { buscarCuentaGasto, persistirAsiento, LineaAsientoInput } from './asientos-engine'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 const MS_DIA = 1000 * 60 * 60 * 24
@@ -67,7 +68,7 @@ export async function registrarVacacion(empresaId: string, input: RegistrarVacac
 
   const fechaInicio = new Date(input.fechaInicio)
   const añoServicio = Math.max(Math.floor(añosServicioEntre(empleado.fechaIngreso, fechaInicio)), 1)
-  const salarioDiario = empleado.salarioBase / 30
+  const salarioDiario = aNumero(empleado.salarioBase) / 30
   const diasBono = diasBonoVacacional(añoServicio)
 
   const montoVacaciones = round2(input.diasDisfrutados * salarioDiario)
@@ -128,7 +129,7 @@ export async function resumenVacaciones(empresaId: string, empleadoId: string): 
   const añosServicio = añosServicioEntre(empleado.fechaIngreso, new Date())
   const añosCompletos = Math.floor(añosServicio)
   const periodosPendientes = Math.max(añosCompletos - vacaciones, 0)
-  const salarioDiario = empleado.salarioBase / 30
+  const salarioDiario = aNumero(empleado.salarioBase) / 30
   let diasPendientes = 0
   for (let k = 1; k <= periodosPendientes; k++) diasPendientes += diasVacaciones(k)
   return {
@@ -167,14 +168,18 @@ export async function procesarLiquidacion(empresaId: string, input: ProcesarLiqu
 
   const aniosServicio = añosServicioEntre(empleado.fechaIngreso, fechaEgreso)
   const añosCompletos = Math.floor(aniosServicio)
-  const salarioDiario = empleado.salarioBase / 30
-  const salarioIntegralDiario = calcularSalarioIntegralDiario(empleado.salarioBase, aniosServicio, empresa)
+  const salarioDiario = aNumero(empleado.salarioBase) / 30
+  const salarioIntegralDiario = calcularSalarioIntegralDiario(
+    aNumero(empleado.salarioBase),
+    aniosServicio,
+    { porcentajeUtilidades: aNumero(empresa.porcentajeUtilidades) },
+  )
 
   // Prestaciones sociales (Art. 142): mayor entre lo acumulado mes a mes
   // (garantía, lit. a) y el cálculo retroactivo de 30 días de salario
   // integral por cada año o fracción de servicio (lit. c).
   const prestacionesRetroactivo = round2(30 * salarioIntegralDiario * aniosServicio)
-  const prestacionesSociales = Math.max(empleado.prestacionesAcumuladas, prestacionesRetroactivo)
+  const prestacionesSociales = Math.max(aNumero(empleado.prestacionesAcumuladas), prestacionesRetroactivo)
 
   // Vacaciones y bono vacacional de años completos no disfrutados.
   const vacacionesTomadas = await db.vacacion.count({ where: { empleadoId: empleado.id } })
@@ -200,7 +205,7 @@ export async function procesarLiquidacion(empresaId: string, input: ProcesarLiqu
   const inicioAnio = new Date(fechaEgreso.getFullYear(), 0, 1)
   const inicioComputo = empleado.fechaIngreso > inicioAnio ? empleado.fechaIngreso : inicioAnio
   const mesesTrabajadosAnio = Math.min(Math.max((fechaEgreso.getTime() - inicioComputo.getTime()) / (MS_DIA * 30), 0), 12)
-  const utilidadesFraccionadas = round2(empleado.salarioBase * (empresa.porcentajeUtilidades / 100) * (mesesTrabajadosAnio / 12))
+  const utilidadesFraccionadas = round2(aNumero(empleado.salarioBase) * (aNumero(empresa.porcentajeUtilidades) / 100) * (mesesTrabajadosAnio / 12))
 
   // Indemnización por despido injustificado (Art. 92): monto igual a las prestaciones sociales.
   const indemnizacionDespido = input.motivoEgreso === 'DESPIDO_INJUSTIFICADO' ? prestacionesSociales : 0

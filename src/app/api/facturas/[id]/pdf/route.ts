@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { generarFacturaPdfBuffer } from '@/lib/exports/factura-pdf'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 // GET /api/facturas/[id]/pdf - genera y descarga el PDF de una factura de venta emitida
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,11 +25,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         rifContraparte: factura.rifContraparte,
         nombreContraparte: factura.nombreContraparte,
         descripcion: factura.descripcion,
-        baseImponible: factura.baseImponible,
-        montoExento: factura.montoExento,
-        alicuotaIVA: factura.alicuotaIVA,
-        montoIVA: factura.montoIVA,
-        total: factura.total,
+        baseImponible: aNumero(factura.baseImponible),
+        montoExento: aNumero(factura.montoExento),
+        alicuotaIVA: aNumero(factura.alicuotaIVA),
+        montoIVA: aNumero(factura.montoIVA),
+        total: aNumero(factura.total),
       },
     })
 

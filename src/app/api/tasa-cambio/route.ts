@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export async function GET() {
   try {
@@ -40,5 +41,5 @@ export async function getTasaVigente(empresaId: string, fecha: Date, monedaRef =
     where: { empresaId, monedaRef, fecha: { lte: fecha } },
     orderBy: { fecha: 'desc' },
   })
-  return tasa?.tasa ?? null
+  return tasa ? aNumero(tasa.tasa) : null
 }

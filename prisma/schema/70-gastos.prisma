@@ -1,0 +1,157 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  GASTOS Y EGRESOS
+// ═══════════════════════════════════════════════════════════════════════
+
+// La distinción gasto / compra de inventario es la que más se equivoca en
+// la práctica, y el sistema debe impedirla en vez de advertirla:
+//
+//   • Un GASTO afecta el resultado del período. Se consume: alquiler, luz,
+//     publicidad, sueldos.
+//   • Una COMPRA DE INVENTARIO afecta el activo. No se consume todavía:
+//     sigue en el almacén y se vuelve costo solo cuando se vende.
+//   • Una COMPRA DE ACTIVO FIJO también afecta el activo, y se consume de
+//     a poco vía depreciación.
+//
+// Registrar mercancía como gasto infla el gasto del mes, subvalúa el
+// inventario y hace que el margen del negocio parezca peor de lo que es.
+// Por eso el módulo de gastos NO tiene ninguna relación con variantes ni
+// almacenes: es estructuralmente incapaz de mover inventario. Y la
+// categoría declara su destino contable, de modo que si alguien intenta
+// registrar un gasto en una categoría cuyo destino es ACTIVO, el servidor
+// lo rechaza y lo manda al módulo correcto.
+model CategoriaGasto {
+  id             String  @id @default(cuid())
+  organizacionId String
+  nombre         String
+  padreId        String?
+  // GASTO = va al estado de resultados. ACTIVO_INVENTARIO y ACTIVO_FIJO
+  // existen en el catálogo solo para poder detectar y rechazar el error.
+  destino        String  @default("GASTO") // GASTO | ACTIVO_INVENTARIO | ACTIVO_FIJO
+  // Fijo se repite igual cada mes; variable depende del volumen. Necesario
+  // para calcular el punto de equilibrio del negocio.
+  naturaleza     String  @default("VARIABLE") // FIJO | VARIABLE
+  // Operativo es del giro del negocio; no operativo es financiero o
+  // extraordinario. Separa el resultado operativo del resultado neto.
+  clasificacion  String  @default("OPERATIVO") // OPERATIVO | NO_OPERATIVO
+  // Cuenta contable donde se imputa, para que el gasto llegue al libro
+  // mayor sin capturarlo dos veces.
+  cuentaId       String?
+  activo         Boolean @default(true)
+
+  organizacion Organizacion     @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  padre        CategoriaGasto?  @relation("CategoriaGastoPadre", fields: [padreId], references: [id])
+  hijas        CategoriaGasto[] @relation("CategoriaGastoPadre")
+
+  gastos      Gasto[]
+  recurrentes GastoRecurrente[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, padreId, nombre])
+  @@index([organizacionId, activo])
+  @@map("categorias_gasto")
+}
+
+model Gasto {
+  id             String @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  categoriaGastoId String
+  proveedorId    String?
+  usuarioId      String
+
+  numero      Int
+  concepto    String
+  fecha       DateTime @db.Date
+  fechaVencimiento DateTime? @db.Date
+
+  moneda     String   @default("VES")
+  tasaCambio Decimal? @db.Decimal(18, 8)
+
+  subtotal      Decimal @default(0) @db.Decimal(18, 4)
+  impuestoMonto Decimal @default(0) @db.Decimal(18, 4)
+  total         Decimal @db.Decimal(18, 4)
+  totalMonedaFuncional Decimal @default(0) @db.Decimal(18, 4)
+
+  estado     String @default("REGISTRADO") // REGISTRADO | PAGADO | ANULADO
+  estadoPago String @default("PENDIENTE") // PENDIENTE | PARCIAL | PAGADA
+  montoPagado Decimal @default(0) @db.Decimal(18, 4)
+
+  // Comprobante: número de factura del proveedor y adjunto (foto o PDF).
+  numeroFactura String?
+  numeroControl String?
+  comprobanteUrl String?
+
+  // De dónde salió el dinero: caja del turno o cuenta bancaria.
+  sesionCajaId     String?
+  cuentaBancariaId String?
+
+  // Si lo generó un gasto recurrente, para no duplicarlo.
+  gastoRecurrenteId String?
+  // Enlace al asiento contable y al documento fiscal, si aplican.
+  asientoId String?
+  facturaId String?
+
+  notas String?
+
+  organizacion   Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal       Sucursal        @relation(fields: [sucursalId], references: [id])
+  categoria      CategoriaGasto  @relation(fields: [categoriaGastoId], references: [id])
+  proveedor      Proveedor?      @relation(fields: [proveedorId], references: [id])
+  usuario        User            @relation(fields: [usuarioId], references: [id])
+  sesionCaja     SesionCaja?     @relation(fields: [sesionCajaId], references: [id])
+  cuentaBancaria CuentaBancaria? @relation(fields: [cuentaBancariaId], references: [id])
+  recurrente     GastoRecurrente? @relation(fields: [gastoRecurrenteId], references: [id])
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, fecha])
+  @@index([organizacionId, categoriaGastoId, fecha])
+  @@index([organizacionId, sucursalId, fecha])
+  @@index([organizacionId, estadoPago])
+  @@map("gastos")
+}
+
+// Gasto fijo que se repite. El sistema genera el gasto del período y avisa
+// del vencimiento; no lo paga solo. proximaGeneracion es la fecha del
+// siguiente que toca, y se avanza al generar para no duplicar.
+model GastoRecurrente {
+  id             String @id @default(cuid())
+  organizacionId String
+  sucursalId     String?
+  categoriaGastoId String
+  proveedorId    String?
+
+  concepto     String
+  monto        Decimal @db.Decimal(18, 4)
+  moneda       String  @default("VES")
+  periodicidad String  @default("MENSUAL") // SEMANAL | QUINCENAL | MENSUAL | BIMESTRAL | TRIMESTRAL | SEMESTRAL | ANUAL
+  // Día del mes (o de la semana, según periodicidad) en que vence.
+  diaVencimiento Int      @default(1)
+  fechaInicio    DateTime @db.Date
+  fechaFin       DateTime? @db.Date
+  proximaGeneracion DateTime @db.Date
+  // Días de anticipación con que se avisa del vencimiento.
+  diasAviso      Int     @default(3)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion   @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  categoria    CategoriaGasto @relation(fields: [categoriaGastoId], references: [id])
+
+  gastosGenerados Gasto[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@index([organizacionId, activo, proximaGeneracion])
+  @@map("gastos_recurrentes")
+}

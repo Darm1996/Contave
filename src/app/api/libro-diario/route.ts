@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 // Libro diario: lista de asientos con sus líneas, formato para reporte
 export async function GET(req: NextRequest) {
@@ -45,8 +46,8 @@ export async function GET(req: NextRequest) {
       })),
     )
     const totales = {
-      debit: filas.reduce((s, f) => s + f.debit, 0),
-      credit: filas.reduce((s, f) => s + f.credit, 0),
+      debit: filas.reduce((s, f) => s + aNumero(f.debit), 0),
+      credit: filas.reduce((s, f) => s + aNumero(f.credit), 0),
       cantidad: asientos.length,
     }
     return NextResponse.json({ filas, totales, asientos })

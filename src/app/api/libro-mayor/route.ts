@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 // Libro mayor: movimientos por cuenta, con saldos
 export async function GET(req: NextRequest) {
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
           },
           select: { debit: true, credit: true },
         })
-        saldoInicial = anteriores.reduce((s, l) => s + (l.debit - l.credit), 0)
+        saldoInicial = anteriores.reduce((s, l) => s + (aNumero(l.debit) - aNumero(l.credit)), 0)
       }
 
       const naturaleza = cuenta.naturaleza // DEUDORA o ACREEDORA
@@ -69,18 +70,18 @@ export async function GET(req: NextRequest) {
 
       let saldo = saldoInicial
       const movimientos = lineas.map((l) => {
-        saldo = saldoSegunNaturaleza(l.debit, l.credit, saldo)
+        saldo = saldoSegunNaturaleza(aNumero(l.debit), aNumero(l.credit), saldo)
         return {
           fecha: l.asiento.fecha,
           numeroAsiento: l.asiento.numero,
           descripcion: l.asiento.descripcion,
-          debit: l.debit,
-          credit: l.credit,
+          debit: aNumero(l.debit),
+          credit: aNumero(l.credit),
           saldo,
         }
       })
-      const totalDebit = lineas.reduce((s, l) => s + l.debit, 0)
-      const totalCredit = lineas.reduce((s, l) => s + l.credit, 0)
+      const totalDebit = lineas.reduce((s, l) => s + aNumero(l.debit), 0)
+      const totalCredit = lineas.reduce((s, l) => s + aNumero(l.credit), 0)
       resultado.push({
         codigoCuenta: cuenta.codigo,
         nombreCuenta: cuenta.nombre,

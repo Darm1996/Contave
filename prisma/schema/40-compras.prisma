@@ -1,0 +1,222 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  COMPRAS — proveedores, órdenes, recepción, costos prorrateables
+// ═══════════════════════════════════════════════════════════════════════
+
+model Proveedor {
+  id             String  @id @default(cuid())
+  organizacionId String
+  // Identificación fiscal. Nullable porque un quiosco compra a proveedores
+  // informales que no emiten factura con RIF; el sistema no debe bloquear
+  // la operación real, solo distinguirla en el libro de compras.
+  rif            String?
+  nombre         String
+  contacto       String?
+  telefono       String?
+  email          String?
+  direccion      String?
+  // Condiciones de pago: CONTADO o CREDITO con N días.
+  condicionPago  String  @default("CONTADO") // CONTADO | CREDITO
+  diasCredito    Int     @default(0)
+  activo         Boolean @default(true)
+
+  organizacion  Organizacion  @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  ordenesCompra OrdenCompra[]
+  compras       Compra[]
+  gastos        Gasto[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, rif])
+  @@index([organizacionId, activo, nombre])
+  @@map("proveedores")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  ORDEN DE COMPRA
+// ───────────────────────────────────────────────────────────────────────
+
+// La orden es una intención, no un hecho contable: NO mueve inventario ni
+// genera cuentas por pagar. Solo la recepción mueve stock y solo la factura
+// genera la deuda. Separarlo así es lo que permite recibir parcialmente sin
+// inventar cantidades.
+model OrdenCompra {
+  id             String   @id @default(cuid())
+  organizacionId String
+  proveedorId    String
+  numero         Int
+  estado         String   @default("BORRADOR") // BORRADOR | APROBADA | PARCIAL | RECIBIDA | ANULADA
+  fecha          DateTime @default(now())
+  fechaEsperada  DateTime?
+  moneda         String   @default("VES")
+  tasaCambio     Decimal? @db.Decimal(18, 8)
+  subtotal       Decimal  @default(0) @db.Decimal(18, 4)
+  impuestoTotal  Decimal  @default(0) @db.Decimal(18, 4)
+  total          Decimal  @default(0) @db.Decimal(18, 4)
+  notas          String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  proveedor    Proveedor    @relation(fields: [proveedorId], references: [id])
+
+  detalles OrdenCompraDetalle[]
+  compras  Compra[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, estado])
+  @@index([proveedorId])
+  @@map("ordenes_compra")
+}
+
+model OrdenCompraDetalle {
+  id            String  @id @default(cuid())
+  ordenCompraId String
+  varianteId    String
+  cantidad      Decimal @db.Decimal(18, 3)
+  // Cuánto se ha recibido acumulado contra esta línea. La recepción parcial
+  // avanza este número; la orden se cierra cuando todas las líneas llegan.
+  cantidadRecibida Decimal @default(0) @db.Decimal(18, 3)
+  costoUnitario Decimal @db.Decimal(18, 6)
+  total         Decimal @db.Decimal(18, 4)
+
+  ordenCompra OrdenCompra @relation(fields: [ordenCompraId], references: [id], onDelete: Cascade)
+  variante    Variante    @relation(fields: [varianteId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ordenCompraId, varianteId])
+  @@map("ordenes_compra_detalle")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  COMPRA (recepción + factura)
+// ───────────────────────────────────────────────────────────────────────
+
+model Compra {
+  id             String  @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  almacenId      String
+  proveedorId    String
+  ordenCompraId  String?
+  usuarioId      String
+
+  numero         Int
+  numeroFactura  String?
+  numeroControl  String?
+  estado         String   @default("BORRADOR") // BORRADOR | CONFIRMADA | ANULADA
+  fecha          DateTime @default(now())
+  fechaVencimiento DateTime?
+
+  // Multimoneda: se guarda la moneda de origen, la tasa aplicada y el
+  // equivalente en moneda funcional. El equivalente NO se recalcula nunca.
+  moneda     String   @default("VES")
+  tasaCambio Decimal? @db.Decimal(18, 8)
+
+  subtotal      Decimal @default(0) @db.Decimal(18, 4)
+  descuentoTotal Decimal @default(0) @db.Decimal(18, 4)
+  impuestoTotal Decimal @default(0) @db.Decimal(18, 4)
+  // Suma de costos adicionales prorrateados (flete, aduana, seguro).
+  costosAdicionales Decimal @default(0) @db.Decimal(18, 4)
+  total         Decimal @default(0) @db.Decimal(18, 4)
+  totalMonedaFuncional Decimal @default(0) @db.Decimal(18, 4)
+
+  montoPagado Decimal @default(0) @db.Decimal(18, 4)
+  estadoPago  String  @default("PENDIENTE") // PENDIENTE | PARCIAL | PAGADA
+
+  // Documento fiscal generado, si aplica (alimenta el libro de compras).
+  facturaId String? @unique
+  // Compra que esta anula/devuelve (devolución a proveedor).
+  compraOrigenId String?
+
+  condicionPago String  @default("CONTADO") // CONTADO | CREDITO
+  notas         String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal     @relation(fields: [sucursalId], references: [id])
+  almacen      Almacen      @relation(fields: [almacenId], references: [id])
+  proveedor    Proveedor    @relation(fields: [proveedorId], references: [id])
+  ordenCompra  OrdenCompra? @relation(fields: [ordenCompraId], references: [id])
+  usuario      User         @relation(fields: [usuarioId], references: [id])
+  factura      Factura?     @relation(fields: [facturaId], references: [id])
+  compraOrigen Compra?      @relation("DevolucionCompra", fields: [compraOrigenId], references: [id])
+  devoluciones Compra[]     @relation("DevolucionCompra")
+
+  detalles          CompraDetalle[]
+  costosAdicionalesDetalle CompraCostoAdicional[]
+  movimientos       MovimientoInventario[]
+  pagos             Pago[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, fecha])
+  @@index([organizacionId, estado, estadoPago])
+  @@index([proveedorId, fecha])
+  @@map("compras")
+}
+
+model CompraDetalle {
+  id         String  @id @default(cuid())
+  compraId   String
+  varianteId String
+  cantidad   Decimal @db.Decimal(18, 3)
+  costoUnitario Decimal @db.Decimal(18, 6)
+  descuentoMonto Decimal @default(0) @db.Decimal(18, 4)
+  impuestoId    String?
+  impuestoTasa  Decimal @default(0) @db.Decimal(7, 4)
+  impuestoMonto Decimal @default(0) @db.Decimal(18, 4)
+  // Costo unitario final tras prorratear flete/aduana/seguro. Es ESTE el
+  // que entra al kardex, no costoUnitario: si se activara solo el precio de
+  // factura, el margen de venta saldría inflado y el inventario
+  // subvalorado.
+  costoUnitarioFinal Decimal @default(0) @db.Decimal(18, 6)
+  total      Decimal @db.Decimal(18, 4)
+  // Lote y vencimiento capturados en la recepción.
+  loteCodigo       String?
+  fechaVencimiento DateTime? @db.Date
+
+  compra   Compra    @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  variante Variante  @relation(fields: [varianteId], references: [id])
+  impuesto Impuesto? @relation(fields: [impuestoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([compraId])
+  @@index([varianteId])
+  @@map("compras_detalle")
+}
+
+// Costos que encarecen la mercancía sin ser parte del precio del proveedor.
+// Se prorratean entre las líneas según el criterio elegido y se suman al
+// costo unitario que entra al inventario.
+model CompraCostoAdicional {
+  id       String  @id @default(cuid())
+  compraId String
+  concepto String  // FLETE | ADUANA | SEGURO | OTRO
+  monto    Decimal @db.Decimal(18, 4)
+  moneda   String  @default("VES")
+  // Cómo se reparte entre las líneas: por valor de línea, por cantidad, o
+  // en partes iguales. Se guarda para poder explicar el costo resultante.
+  criterioProrrateo String @default("VALOR") // VALOR | CANTIDAD | PARTES_IGUALES
+  proveedorNombre   String?
+  numeroDocumento   String?
+
+  compra Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([compraId])
+  @@map("compras_costos_adicionales")
+}

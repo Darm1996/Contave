@@ -1,0 +1,48 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  AdminHub sobre ContaVE — configuración base del esquema
+// ═══════════════════════════════════════════════════════════════════════
+//
+// CONVENCIÓN DE PRECISIÓN NUMÉRICA (regla innegociable del proyecto)
+// ---------------------------------------------------------------------
+// Ningún campo que represente dinero, cantidad, costo, tasa o porcentaje
+// usa Float. Float es binario y no puede representar 0.10 exactamente, así
+// que 0.1 + 0.2 !== 0.3. En un kardex con costo promedio ponderado ese
+// error se acumula movimiento a movimiento, y en un arqueo de caja produce
+// diferencias de céntimos que no existen en la realidad. Por eso todo es
+// Decimal, con esta precisión según lo que representa:
+//
+//   Decimal(18, 4)  MONTO       Importes de dinero. 4 decimales para que un
+//                               monto en USD convertido a Bs no pierda
+//                               céntimos antes del redondeo final.
+//   Decimal(18, 3)  CANTIDAD    Existencias. 3 decimales para gramos y
+//                               mililitros al fraccionar (kg → g, L → ml).
+//   Decimal(18, 6)  COSTO_UNIT  Costos unitarios y costo promedio. Llevan
+//                               MÁS precisión que los montos a propósito:
+//                               el promedio ponderado es un valor
+//                               intermedio que se recalcula en cada
+//                               entrada, y redondearlo a 2 decimales en
+//                               cada movimiento es justamente lo que
+//                               descuadra el inventario a la larga.
+//   Decimal(18, 8)  TASA        Tasas de cambio y factores de conversión.
+//                               La tasa Bs/USD es un número grande y muy
+//                               preciso; truncarla mueve totales completos.
+//   Decimal(7, 4)   PORCENTAJE  Alícuotas y porcentajes (16.0000 = 16 %).
+//
+// El redondeo a la moneda ocurre UNA SOLA VEZ, al final del cálculo de un
+// documento, en src/lib/nucleo/dinero.ts. Nunca en pasos intermedios.
+//
+// MULTI-TENANT
+// ---------------------------------------------------------------------
+// La raíz de tenencia es Organizacion. Toda tabla operativa lleva
+// organizacionId. Las tablas contables heredadas llevan empresaId, y
+// Empresa es el perfil fiscal 1:1 de una Organizacion (ver 10-nucleo).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}

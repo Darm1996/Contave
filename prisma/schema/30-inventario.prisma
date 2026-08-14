@@ -1,0 +1,256 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  INVENTARIO — existencias, lotes, kardex inmutable, traslados, conteos
+// ═══════════════════════════════════════════════════════════════════════
+
+// Saldo actual por variante y almacén. Es un CACHÉ del kardex, no la
+// verdad: la verdad es la suma de movimientos_inventario. Existe porque el
+// POS necesita saber el stock en milisegundos, no sumando 40.000 filas.
+//
+// Se actualiza siempre dentro de la misma transacción que inserta el
+// movimiento, y con un bloqueo de fila (SELECT ... FOR UPDATE) para que dos
+// ventas simultáneas del mismo producto no lean el mismo saldo y escriban
+// dos veces el mismo resultado. Sin ese bloqueo el stock se descuadra bajo
+// concurrencia, que es el bug más difícil de detectar de todo el sistema.
+model Existencia {
+  id             String  @id @default(cuid())
+  organizacionId String
+  varianteId     String
+  almacenId      String
+
+  cantidad Decimal @default(0) @db.Decimal(18, 3)
+  // Costo promedio ponderado vigente. 6 decimales a propósito: es un valor
+  // intermedio que se recalcula en cada entrada y redondearlo a 2 en cada
+  // paso acumula error hasta descuadrar la valorización.
+  costoPromedio Decimal @default(0) @db.Decimal(18, 6)
+  // Último costo de entrada, útil para reponer y para comparar contra el
+  // promedio sin recorrer el kardex.
+  ultimoCosto   Decimal @default(0) @db.Decimal(18, 6)
+  // Cantidad comprometida por apartados/comandas abiertas: se resta del
+  // disponible sin haber salido todavía del almacén.
+  cantidadReservada Decimal @default(0) @db.Decimal(18, 3)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  variante     Variante     @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  almacen      Almacen      @relation(fields: [almacenId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([varianteId, almacenId])
+  @@index([organizacionId, almacenId])
+  @@map("existencias")
+}
+
+// Lote con fecha de vencimiento. Obligatorio en rubro alimentos
+// (Producto.manejaLotes), opcional en el resto.
+model Lote {
+  id             String    @id @default(cuid())
+  organizacionId String
+  varianteId     String
+  almacenId      String
+  codigo         String
+  fechaVencimiento DateTime? @db.Date
+  cantidad       Decimal   @default(0) @db.Decimal(18, 3)
+  costoUnitario  Decimal   @default(0) @db.Decimal(18, 6)
+  activo         Boolean   @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  variante     Variante     @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  almacen      Almacen      @relation(fields: [almacenId], references: [id], onDelete: Cascade)
+
+  movimientos MovimientoInventario[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([varianteId, almacenId, codigo])
+  @@index([organizacionId, fechaVencimiento])
+  @@map("lotes")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  KARDEX
+// ───────────────────────────────────────────────────────────────────────
+
+// Libro de movimientos. INMUTABLE: no tiene updatedAt ni borrado lógico a
+// propósito. Un error no se corrige editando la fila; se registra un
+// movimiento de reversa que apunta al original (movimientoReversadoId). Así
+// el kardex siempre explica cómo se llegó al saldo actual, y una auditoría
+// puede reconstruir la existencia a cualquier fecha pasada.
+//
+// `cantidad` va CON SIGNO: positiva entra, negativa sale. Esto permite que
+// el saldo a una fecha sea una sola suma, sin ramificar por tipo.
+model MovimientoInventario {
+  id             String @id @default(cuid())
+  organizacionId String
+  varianteId     String
+  almacenId      String
+  loteId         String?
+
+  tipo String
+  // ENTRADA_COMPRA | SALIDA_VENTA | DEVOLUCION_CLIENTE | DEVOLUCION_PROVEEDOR
+  // | TRASLADO_SALIDA | TRASLADO_ENTRADA | AJUSTE_CONTEO | MERMA
+  // | CONSUMO_INTERNO | PRODUCCION_ENTRADA | PRODUCCION_SALIDA | REVERSA
+  // | SALDO_INICIAL
+
+  cantidad Decimal @db.Decimal(18, 3)
+  // Costo congelado en el momento del movimiento. Un cambio de costo
+  // posterior no reescribe la historia: por eso el costo se guarda aquí y
+  // no se lee del producto al hacer un reporte.
+  costoUnitario Decimal @db.Decimal(18, 6)
+  costoTotal    Decimal @db.Decimal(18, 4)
+  // Fotografía del saldo DESPUÉS de este movimiento, para poder auditar el
+  // kardex sin recalcular toda la cadena.
+  cantidadSaldo      Decimal @db.Decimal(18, 3)
+  costoPromedioSaldo Decimal @db.Decimal(18, 6)
+
+  // Documento de origen. FKs explícitas en vez de un par
+  // (tipo_documento, id) porque así la base de datos garantiza que el
+  // documento referenciado existe.
+  ventaId    String?
+  compraId   String?
+  trasladoId String?
+  tomaId     String?
+  comandaId  String?
+  // Enlace al asiento contable del costo de venta, si se generó.
+  asientoId  String?
+
+  motivo   String?
+  usuarioId String?
+  fecha    DateTime @default(now())
+
+  // Reversa: apunta al movimiento que este anula.
+  movimientoReversadoId String? @unique
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  variante     Variante     @relation(fields: [varianteId], references: [id], onDelete: Cascade)
+  almacen      Almacen      @relation(fields: [almacenId], references: [id])
+  lote         Lote?        @relation(fields: [loteId], references: [id])
+  usuario      User?        @relation(fields: [usuarioId], references: [id])
+  venta        Venta?       @relation(fields: [ventaId], references: [id])
+  compra       Compra?      @relation(fields: [compraId], references: [id])
+  traslado     Traslado?    @relation(fields: [trasladoId], references: [id])
+  toma         TomaInventario? @relation(fields: [tomaId], references: [id])
+
+  movimientoReversado MovimientoInventario? @relation("Reversa", fields: [movimientoReversadoId], references: [id])
+  reversa             MovimientoInventario? @relation("Reversa")
+
+  createdAt DateTime @default(now())
+
+  @@index([organizacionId, varianteId, almacenId, fecha])
+  @@index([organizacionId, fecha])
+  @@index([ventaId])
+  @@index([compraId])
+  @@map("movimientos_inventario")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  TRASLADOS ENTRE ALMACENES
+// ───────────────────────────────────────────────────────────────────────
+
+// Un traslado genera dos movimientos por línea (salida en origen, entrada
+// en destino) unidos por este encabezado. El estado EN_TRANSITO permite que
+// la mercancía no esté en ningún almacén de venta mientras viaja, sin
+// desaparecer del inventario total.
+model Traslado {
+  id             String   @id @default(cuid())
+  organizacionId String
+  numero         Int
+  almacenOrigenId  String
+  almacenDestinoId String
+  estado         String   @default("BORRADOR") // BORRADOR | EN_TRANSITO | RECIBIDO | ANULADO
+  fecha          DateTime @default(now())
+  fechaRecepcion DateTime?
+  motivo         String?
+  usuarioId      String?
+
+  organizacion   Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  almacenOrigen  Almacen      @relation("TrasladoOrigen", fields: [almacenOrigenId], references: [id])
+  almacenDestino Almacen      @relation("TrasladoDestino", fields: [almacenDestinoId], references: [id])
+
+  detalles    TrasladoDetalle[]
+  movimientos MovimientoInventario[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, estado])
+  @@map("traslados")
+}
+
+model TrasladoDetalle {
+  id         String  @id @default(cuid())
+  trasladoId String
+  varianteId String
+  cantidad   Decimal @db.Decimal(18, 3)
+  // Cantidad realmente recibida: puede diferir de la enviada (merma en
+  // tránsito), y la diferencia queda registrada en vez de perderse.
+  cantidadRecibida Decimal? @db.Decimal(18, 3)
+
+  traslado Traslado @relation(fields: [trasladoId], references: [id], onDelete: Cascade)
+  variante Variante @relation(fields: [varianteId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([trasladoId, varianteId])
+  @@map("traslados_detalle")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  TOMA DE INVENTARIO FÍSICO
+// ───────────────────────────────────────────────────────────────────────
+
+// Hoja de conteo: se congela el teórico al abrir, se captura el físico, y
+// al cerrar se generan movimientos de AJUSTE_CONTEO por la diferencia, con
+// motivo y responsable obligatorios.
+model TomaInventario {
+  id             String   @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  almacenId      String
+  numero         Int
+  estado         String   @default("ABIERTA") // ABIERTA | CONTADA | CERRADA | ANULADA
+  fechaApertura  DateTime @default(now())
+  fechaCierre    DateTime?
+  responsableId  String?
+  motivo         String?
+  observaciones  String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal     @relation(fields: [sucursalId], references: [id])
+  almacen      Almacen      @relation(fields: [almacenId], references: [id])
+
+  detalles    TomaInventarioDetalle[]
+  movimientos MovimientoInventario[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, estado])
+  @@map("tomas_inventario")
+}
+
+model TomaInventarioDetalle {
+  id         String  @id @default(cuid())
+  tomaId     String
+  varianteId String
+  // Teórico congelado al abrir la hoja: si se recalculara al cerrar, las
+  // ventas ocurridas durante el conteo se contarían como faltantes.
+  cantidadTeorica Decimal  @db.Decimal(18, 3)
+  cantidadFisica  Decimal? @db.Decimal(18, 3)
+  costoPromedio   Decimal  @db.Decimal(18, 6)
+  observacion     String?
+
+  toma     TomaInventario @relation(fields: [tomaId], references: [id], onDelete: Cascade)
+  variante Variante       @relation(fields: [varianteId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tomaId, varianteId])
+  @@map("tomas_inventario_detalle")
+}

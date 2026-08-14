@@ -1,20 +1,40 @@
-import { NextResponse } from 'next/server'
-import { requireEmpresaRole } from '@/lib/auth'
-import { desactivarProducto } from '@/lib/contabilidad/inventario'
+import { NextRequest } from 'next/server'
+import { exigirPermiso } from '@/lib/nucleo/permisos'
+import { ok, manejarError } from '@/lib/nucleo/respuesta'
+import { esquemaEditarProducto } from '@/lib/nucleo/esquemas'
+import { desactivarProducto, editarProducto } from '@/lib/nucleo/catalogo'
 import { registrarAuditoria } from '@/lib/auditoria'
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { user, empresaId } = await requireEmpresaRole('CONTADOR')
+    const ctx = await exigirPermiso('producto.editar')
     const { id } = await params
-    const producto = await desactivarProducto(empresaId, id)
+    const datos = esquemaEditarProducto.parse(await req.json())
+    const producto = await editarProducto(ctx, id, datos)
+    return ok({ producto })
+  } catch (error) {
+    return manejarError(error)
+  }
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const ctx = await exigirPermiso('producto.anular')
+    const { id } = await params
+    const producto = await desactivarProducto(ctx, id)
+
     await registrarAuditoria({
-      empresaId, userId: user.id, userEmail: user.email,
-      accion: 'PRODUCTO_DESACTIVADO', entidad: 'Producto', entidadId: id,
+      empresaId: ctx.empresaId,
+      userId: ctx.usuarioId,
+      userEmail: ctx.email,
+      accion: 'PRODUCTO_DESACTIVADO',
+      entidad: 'Producto',
+      entidadId: id,
       detalle: `Producto ${producto.nombre} desactivado`,
     })
-    return NextResponse.json({ producto })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 })
+
+    return ok({ producto })
+  } catch (error) {
+    return manejarError(error)
   }
 }

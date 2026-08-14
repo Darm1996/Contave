@@ -4,6 +4,7 @@
 // contabiliza la depreciación mensual acumulada.
 
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 import { buscarCuentaPorUso, persistirAsiento, LineaAsientoInput } from './asientos-engine'
 
 export interface ActivoFijoInput {
@@ -48,8 +49,8 @@ export async function listarActivos(empresaId: string) {
   return activos.map((a) => ({
     ...a,
     cuenta: mapaCuentas.get(a.cuentaActivoId) || null,
-    valorLibro: a.costoAdquisicion - a.depreciacionAcumulada,
-    depreciacionMensual: calcularDepreciacionMensual(a.costoAdquisicion, a.valorResidual, a.vidaUtilMeses),
+    valorLibro: aNumero(a.costoAdquisicion) - aNumero(a.depreciacionAcumulada),
+    depreciacionMensual: calcularDepreciacionMensual(aNumero(a.costoAdquisicion), aNumero(a.valorResidual), a.vidaUtilMeses),
   }))
 }
 
@@ -78,11 +79,11 @@ export async function generarAsientoDepreciacionMes(empresaId: string, mes: numb
   let totalDepreciado = 0
   for (const activo of activos) {
     if (yaGeneradosIds.has(activo.id)) continue
-    const mensual = calcularDepreciacionMensual(activo.costoAdquisicion, activo.valorResidual, activo.vidaUtilMeses)
-    const restante = activo.costoAdquisicion - activo.valorResidual - activo.depreciacionAcumulada
+    const mensual = calcularDepreciacionMensual(aNumero(activo.costoAdquisicion), aNumero(activo.valorResidual), activo.vidaUtilMeses)
+    const restante = aNumero(activo.costoAdquisicion) - aNumero(activo.valorResidual) - aNumero(activo.depreciacionAcumulada)
     const monto = Math.min(mensual, Math.max(0, restante))
     if (monto <= 0) continue
-    detalle.push({ activoId: activo.id, monto, valorLibroDespues: activo.costoAdquisicion - (activo.depreciacionAcumulada + monto) })
+    detalle.push({ activoId: activo.id, monto, valorLibroDespues: aNumero(activo.costoAdquisicion) - (aNumero(activo.depreciacionAcumulada) + monto) })
     totalDepreciado += monto
   }
 
@@ -106,8 +107,8 @@ export async function generarAsientoDepreciacionMes(empresaId: string, mes: numb
       data: { activoFijoId: d.activoId, mes, ano, montoDepreciado: d.monto, valorLibroDespues: d.valorLibroDespues, asientoId: asiento.id },
     })
     const activo = activos.find((a) => a.id === d.activoId)!
-    const nuevaAcumulada = activo.depreciacionAcumulada + d.monto
-    const totalmenteDepreciado = nuevaAcumulada >= activo.costoAdquisicion - activo.valorResidual - 0.01
+    const nuevaAcumulada = aNumero(activo.depreciacionAcumulada) + d.monto
+    const totalmenteDepreciado = nuevaAcumulada >= aNumero(activo.costoAdquisicion) - aNumero(activo.valorResidual) - 0.01
     await db.activoFijo.update({
       where: { id: d.activoId },
       data: { depreciacionAcumulada: nuevaAcumulada, estado: totalmenteDepreciado ? 'DEPRECIADO_TOTAL' : 'ACTIVO' },

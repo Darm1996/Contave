@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll } from 'vitest'
 import { db } from '@/lib/db'
 import { cerrarEjercicio, crearEjercicio, listarEjercicios, reabrirEjercicio } from '@/lib/contabilidad/ejercicios'
 import { crearEmpresaDePrueba, limpiarDatosDePrueba } from './helpers'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 afterAll(async () => {
   await limpiarDatosDePrueba()
@@ -72,8 +73,8 @@ describe('cierre de ejercicio fiscal', () => {
 
     // El asiento de cierre debe balancear (débito total == crédito total)
     const lineasCierre = await db.asientoLinea.findMany({ where: { asientoId: resultado.asientoCierre.id } })
-    const debitCierre = lineasCierre.reduce((s, l) => s + l.debit, 0)
-    const creditCierre = lineasCierre.reduce((s, l) => s + l.credit, 0)
+    const debitCierre = lineasCierre.reduce((s, l) => s + aNumero(l.debit), 0)
+    const creditCierre = lineasCierre.reduce((s, l) => s + aNumero(l.credit), 0)
     expect(debitCierre).toBeCloseTo(creditCierre, 2)
 
     // Debe haberse creado el ejercicio del año siguiente, abierto
@@ -85,8 +86,8 @@ describe('cierre de ejercicio fiscal', () => {
     // El asiento de apertura (si se generó) también debe balancear
     if (resultado.asientoApertura) {
       const lineasApertura = await db.asientoLinea.findMany({ where: { asientoId: resultado.asientoApertura.id } })
-      const debitAp = lineasApertura.reduce((s, l) => s + l.debit, 0)
-      const creditAp = lineasApertura.reduce((s, l) => s + l.credit, 0)
+      const debitAp = lineasApertura.reduce((s, l) => s + aNumero(l.debit), 0)
+      const creditAp = lineasApertura.reduce((s, l) => s + aNumero(l.credit), 0)
       expect(debitAp).toBeCloseTo(creditAp, 2)
     }
   })

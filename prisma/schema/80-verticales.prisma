@@ -1,0 +1,311 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  MÓDULOS VERTICALES — restaurante, ropa, quiosco
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Estas tablas no son un sistema aparte: cuelgan del mismo núcleo. Una
+// comanda termina en una Venta normal, una receta descuenta del mismo
+// kardex, y una temporada solo etiqueta productos. Si un rubro no las usa,
+// quedan vacías y no estorban.
+
+// ───────────────────────────────────────────────────────────────────────
+//  RESTAURANTE — áreas, mesas, comandas
+// ───────────────────────────────────────────────────────────────────────
+
+model Area {
+  id             String  @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  nombre         String // Salón, Terraza, Barra
+  orden          Int     @default(0)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+  mesas        Mesa[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sucursalId, nombre])
+  @@map("areas")
+}
+
+model Mesa {
+  id             String  @id @default(cuid())
+  organizacionId String
+  areaId         String
+  codigo         String
+  capacidad      Int     @default(4)
+  // Estado visual del salón. Se deriva de las comandas abiertas, pero se
+  // persiste para que la pantalla de mesas cargue de un solo golpe.
+  estado         String  @default("LIBRE") // LIBRE | OCUPADA | RESERVADA | POR_COBRAR | FUERA_SERVICIO
+  // Posición en el plano del salón, para dibujarlo.
+  posicionX      Int     @default(0)
+  posicionY      Int     @default(0)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  area         Area         @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  comandas Comanda[]
+  ventas   Venta[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizacionId, codigo])
+  @@index([organizacionId, estado])
+  @@map("mesas")
+}
+
+// Comanda: el pedido de una mesa antes de cobrarse. Es el paso donde la
+// cocina recibe la orden y donde el inventario de insumos se descuenta (al
+// enviar a cocina, no al cobrar: si el plato ya se preparó, los insumos ya
+// se gastaron aunque el cliente no pague).
+model Comanda {
+  id             String   @id @default(cuid())
+  organizacionId String
+  mesaId         String?
+  clienteId      String?
+  numero         Int
+  estado         String   @default("ABIERTA") // ABIERTA | ENVIADA | PREPARADA | COBRADA | ANULADA
+  canal          String   @default("SALON") // SALON | LLEVAR | DELIVERY
+  comensales     Int      @default(1)
+  fecha          DateTime @default(now())
+  fechaEnvio     DateTime?
+  meseroId       String?
+  // División de cuenta: una comanda madre puede partirse en varias.
+  comandaPadreId String?
+  notas          String?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  mesa         Mesa?        @relation(fields: [mesaId], references: [id])
+  cliente      Cliente?     @relation(fields: [clienteId], references: [id])
+  comandaPadre Comanda?     @relation("DivisionCuenta", fields: [comandaPadreId], references: [id])
+  divisiones   Comanda[]    @relation("DivisionCuenta")
+
+  detalles ComandaDetalle[]
+  venta    Venta?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  @@unique([organizacionId, numero])
+  @@index([organizacionId, estado])
+  @@index([mesaId, estado])
+  @@map("comandas")
+}
+
+model ComandaDetalle {
+  id         String  @id @default(cuid())
+  comandaId  String
+  varianteId String
+  cantidad   Decimal @db.Decimal(18, 3)
+  precioUnitario Decimal @db.Decimal(18, 4)
+  // Estado por línea: en una mesa, la entrada sale antes que el plato
+  // fuerte, y la cocina necesita saber qué ya despachó.
+  estado     String  @default("PENDIENTE") // PENDIENTE | ENVIADO | LISTO | ENTREGADO | ANULADO
+  // Destino de preparación, para enrutar a cocina o barra.
+  destino    String  @default("COCINA") // COCINA | BARRA | NINGUNO
+  notas      String?
+
+  comanda  Comanda  @relation(fields: [comandaId], references: [id], onDelete: Cascade)
+  variante Variante @relation(fields: [varianteId], references: [id])
+
+  modificadores ComandaDetalleModificador[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([comandaId])
+  @@map("comandas_detalle")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  RECETAS / ESCANDALLO
+// ───────────────────────────────────────────────────────────────────────
+
+// Receta de un producto elaborado. Sirve para dos cosas a la vez:
+//   1. Descontar los insumos del inventario al vender el plato.
+//   2. Calcular el costo real del plato como suma del costo de sus insumos,
+//      incluyendo la merma de preparación.
+//
+// También modela los COMBOS de retail: un combo es una receta cuyos
+// "insumos" son productos terminados.
+model Receta {
+  id             String  @id @default(cuid())
+  organizacionId String
+  productoId     String
+  nombre         String  @default("")
+  // Cuántas porciones rinde la receta. El costo por porción es el costo
+  // total de los insumos dividido por este número.
+  rendimiento    Decimal @default(1) @db.Decimal(18, 3)
+  // Merma global de la preparación (evaporación, recortes), aparte de la
+  // merma por insumo.
+  porcentajeMermaGlobal Decimal @default(0) @db.Decimal(7, 4)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  producto     Producto     @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  detalles RecetaDetalle[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([productoId])
+  @@index([organizacionId, activo])
+  @@map("recetas")
+}
+
+model RecetaDetalle {
+  id       String @id @default(cuid())
+  recetaId String
+  // Insumo consumido. Es una variante para que "Harina marca X" y "Harina
+  // marca Y" sean insumos distintos con costos distintos.
+  varianteId String
+  cantidad   Decimal @db.Decimal(18, 3)
+  // Unidad en la que está expresada la receta (ej. gramos), que puede no
+  // ser la unidad de inventario del insumo (ej. kilos). La conversión se
+  // hace con el factor de la unidad, no con un número a mano.
+  unidadMedidaId String
+  // Merma propia de este insumo al prepararlo (ej. pelar una papa pierde
+  // 20 %). El consumo real es cantidad / (1 - merma).
+  porcentajeMerma Decimal @default(0) @db.Decimal(7, 4)
+  // Si es opcional, no bloquea la venta cuando falta existencia.
+  esOpcional Boolean @default(false)
+  orden      Int     @default(0)
+
+  receta   Receta       @relation(fields: [recetaId], references: [id], onDelete: Cascade)
+  variante Variante     @relation(fields: [varianteId], references: [id])
+  unidad   UnidadMedida @relation(fields: [unidadMedidaId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([recetaId, varianteId])
+  @@map("recetas_detalle")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  MODIFICADORES (sin cebolla, término, extras con precio)
+// ───────────────────────────────────────────────────────────────────────
+
+model GrupoModificador {
+  id             String  @id @default(cuid())
+  organizacionId String
+  nombre         String // "Término de cocción", "Extras"
+  // Cuántas opciones se pueden elegir. min=1 fuerza una elección
+  // obligatoria (el término de la carne); max limita los extras.
+  minSelecciones Int     @default(0)
+  maxSelecciones Int     @default(1)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion  @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  modificadores Modificador[]
+  productos    GrupoModificadorProducto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizacionId, nombre])
+  @@map("grupos_modificador")
+}
+
+model Modificador {
+  id       String  @id @default(cuid())
+  grupoId  String
+  nombre   String // "Sin cebolla", "Término medio", "Extra queso"
+  // Precio adicional. Cero para los que solo son una instrucción.
+  precioExtra Decimal @default(0) @db.Decimal(18, 4)
+  // Insumo que consume este extra, si aplica: "extra queso" debe descontar
+  // queso del inventario.
+  varianteInsumoId String?
+  cantidadInsumo   Decimal @default(0) @db.Decimal(18, 3)
+  orden    Int     @default(0)
+  activo   Boolean @default(true)
+
+  grupo GrupoModificador @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+
+  comandaDetalles ComandaDetalleModificador[]
+  ventaDetalles   VentaDetalleModificador[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([grupoId, nombre])
+  @@map("modificadores")
+}
+
+model GrupoModificadorProducto {
+  grupoId    String
+  productoId String
+
+  grupo    GrupoModificador @relation(fields: [grupoId], references: [id], onDelete: Cascade)
+  producto Producto         @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@id([grupoId, productoId])
+  @@index([productoId])
+  @@map("grupos_modificador_productos")
+}
+
+model ComandaDetalleModificador {
+  id               String  @id @default(cuid())
+  comandaDetalleId String
+  modificadorId    String
+  precioExtra      Decimal @db.Decimal(18, 4)
+
+  comandaDetalle ComandaDetalle @relation(fields: [comandaDetalleId], references: [id], onDelete: Cascade)
+  modificador    Modificador    @relation(fields: [modificadorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([comandaDetalleId, modificadorId])
+  @@map("comandas_detalle_modificadores")
+}
+
+model VentaDetalleModificador {
+  id             String  @id @default(cuid())
+  ventaDetalleId String
+  modificadorId  String
+  // Nombre y precio congelados, como todo en un documento emitido.
+  nombre         String
+  precioExtra    Decimal @db.Decimal(18, 4)
+
+  ventaDetalle VentaDetalle @relation(fields: [ventaDetalleId], references: [id], onDelete: Cascade)
+  modificador  Modificador  @relation(fields: [modificadorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([ventaDetalleId, modificadorId])
+  @@map("ventas_detalle_modificadores")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  ROPA — temporadas y colecciones
+// ───────────────────────────────────────────────────────────────────────
+
+model Temporada {
+  id             String   @id @default(cuid())
+  organizacionId String
+  nombre         String // "Verano 2026"
+  coleccion      String?
+  fechaInicio    DateTime? @db.Date
+  fechaFin       DateTime? @db.Date
+  // Marca la mercancía de temporada anterior, que es la que hay que
+  // liquidar. Se usa para reportes de capital inmovilizado.
+  esAnterior     Boolean  @default(false)
+  activo         Boolean  @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  productos    Producto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizacionId, nombre])
+  @@map("temporadas")
+}

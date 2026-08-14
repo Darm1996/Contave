@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { isGoogleSheetsEnabled, sincronizarFacturas, sincronizarLibroDiario, sincronizarBalanceComprobacion } from '@/lib/exports/google-sheets'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export async function GET() {
   return NextResponse.json({ habilitado: isGoogleSheetsEnabled() })
@@ -33,13 +34,13 @@ export async function POST(req: NextRequest) {
           numeroControl: f.numeroControl || '',
           rifContraparte: f.rifContraparte,
           nombreContraparte: f.nombreContraparte,
-          baseImponible: f.baseImponible,
-          montoExento: f.montoExento,
-          montoExonerado: f.montoExonerado,
-          montoIVA: f.montoIVA,
-          retencionIVA: f.montoRetencionIVA,
-          total: f.total,
-          totalAPagar: f.totalAPagar,
+          baseImponible: aNumero(f.baseImponible),
+          montoExento: aNumero(f.montoExento),
+          montoExonerado: aNumero(f.montoExonerado),
+          montoIVA: aNumero(f.montoIVA),
+          retencionIVA: f.montoRetencionIVA === null ? null : aNumero(f.montoRetencionIVA),
+          total: aNumero(f.total),
+          totalAPagar: aNumero(f.totalAPagar),
           moneda: f.monedaOriginal,
           descripcion: f.descripcion,
         })),
@@ -60,8 +61,8 @@ export async function POST(req: NextRequest) {
           referencia: a.referencia || '',
           codigoCuenta: l.cuenta.codigo,
           nombreCuenta: l.cuenta.nombre,
-          debit: l.debit,
-          credit: l.credit,
+          debit: aNumero(l.debit),
+          credit: aNumero(l.credit),
         })),
       )
       resultados.diario = await sincronizarLibroDiario(filas)
@@ -85,8 +86,8 @@ export async function POST(req: NextRequest) {
           select: { debit: true, credit: true },
         })
         if (lineas.length === 0) continue
-        const tDeb = lineas.reduce((s, l) => s + l.debit, 0)
-        const tCre = lineas.reduce((s, l) => s + l.credit, 0)
+        const tDeb = lineas.reduce((s, l) => s + aNumero(l.debit), 0)
+        const tCre = lineas.reduce((s, l) => s + aNumero(l.credit), 0)
         const saldo = cuenta.naturaleza === 'DEUDORA' ? tDeb - tCre : tCre - tDeb
         const deudor = cuenta.naturaleza === 'DEUDORA'
           ? (saldo > 0 ? saldo : 0)

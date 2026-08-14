@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { generarExcelContable } from '@/lib/exports/excel'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 // POST /api/export/excel
 // Body: { desde?: 'YYYY-MM-DD', hasta?: 'YYYY-MM-DD' }
@@ -34,13 +35,13 @@ export async function POST(req: NextRequest) {
       numeroControl: f.numeroControl || '',
       rifContraparte: f.rifContraparte,
       nombreContraparte: f.nombreContraparte,
-      baseImponible: f.baseImponible,
-      montoExento: f.montoExento,
-      montoExonerado: f.montoExonerado,
-      montoIVA: f.montoIVA,
-      retencionIVA: f.montoRetencionIVA,
-      total: f.total,
-      totalAPagar: f.totalAPagar,
+      baseImponible: aNumero(f.baseImponible),
+      montoExento: aNumero(f.montoExento),
+      montoExonerado: aNumero(f.montoExonerado),
+      montoIVA: aNumero(f.montoIVA),
+      retencionIVA: f.montoRetencionIVA === null ? null : aNumero(f.montoRetencionIVA),
+      total: aNumero(f.total),
+      totalAPagar: aNumero(f.totalAPagar),
       moneda: f.monedaOriginal,
       descripcion: f.descripcion,
     }))
@@ -65,8 +66,8 @@ export async function POST(req: NextRequest) {
         referencia: a.referencia,
         codigoCuenta: l.cuenta.codigo,
         nombreCuenta: l.cuenta.nombre,
-        debit: l.debit,
-        credit: l.credit,
+        debit: aNumero(l.debit),
+        credit: aNumero(l.credit),
       })),
     )
 
@@ -94,13 +95,13 @@ export async function POST(req: NextRequest) {
       if (lineas.length === 0) continue
       let saldo = 0
       const movs = lineas.map((l) => {
-        saldo = cuenta.naturaleza === 'DEUDORA' ? saldo + l.debit - l.credit : saldo + l.credit - l.debit
+        saldo = cuenta.naturaleza === 'DEUDORA' ? saldo + aNumero(l.debit) - aNumero(l.credit) : saldo + aNumero(l.credit) - aNumero(l.debit)
         return {
           fecha: l.asiento.fecha,
           numeroAsiento: l.asiento.numero,
           descripcion: l.asiento.descripcion,
-          debit: l.debit,
-          credit: l.credit,
+          debit: aNumero(l.debit),
+          credit: aNumero(l.credit),
           saldo,
         }
       })
@@ -110,8 +111,8 @@ export async function POST(req: NextRequest) {
         tipoCuenta: cuenta.tipo,
         saldoInicial: 0,
         movimientos: movs,
-        totalDebit: lineas.reduce((s, l) => s + l.debit, 0),
-        totalCredit: lineas.reduce((s, l) => s + l.credit, 0),
+        totalDebit: lineas.reduce((s, l) => s + aNumero(l.debit), 0),
+        totalCredit: lineas.reduce((s, l) => s + aNumero(l.credit), 0),
         saldoFinal: saldo,
       })
     }
@@ -130,8 +131,8 @@ export async function POST(req: NextRequest) {
         select: { debit: true, credit: true },
       })
       if (lineas.length === 0) continue
-      const tDeb = lineas.reduce((s, l) => s + l.debit, 0)
-      const tCre = lineas.reduce((s, l) => s + l.credit, 0)
+      const tDeb = lineas.reduce((s, l) => s + aNumero(l.debit), 0)
+      const tCre = lineas.reduce((s, l) => s + aNumero(l.credit), 0)
       const saldo = cuenta.naturaleza === 'DEUDORA' ? tDeb - tCre : tCre - tDeb
       const deudor = cuenta.naturaleza === 'DEUDORA'
         ? (saldo > 0 ? saldo : 0)

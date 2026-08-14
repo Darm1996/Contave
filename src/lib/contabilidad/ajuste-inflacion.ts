@@ -8,6 +8,7 @@
 
 import { db } from '@/lib/db'
 import { buscarCuentaPorUso, persistirAsiento, LineaAsientoInput } from './asientos-engine'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export async function registrarIndiceInflacion(empresaId: string, mes: number, ano: number, indice: number, fuente = 'MANUAL') {
   if (!indice || indice <= 0) throw new Error('El índice debe ser mayor a 0')
@@ -34,7 +35,7 @@ async function saldoCuentasHasta(empresaId: string, cuentaIds: string[], fechaLi
     _sum: { debit: true, credit: true },
   })
   const mapa = new Map<string, number>()
-  for (const l of lineas) mapa.set(l.cuentaId, (l._sum.debit || 0) - (l._sum.credit || 0))
+  for (const l of lineas) mapa.set(l.cuentaId, (aNumero(l._sum.debit) || 0) - (aNumero(l._sum.credit) || 0))
   return mapa
 }
 
@@ -50,8 +51,8 @@ export async function calcularAjusteInflacion(empresaId: string, mes: number, an
   const indiceInicialRow = await db.indiceInflacion.findUnique({ where: { empresaId_mes_ano: { empresaId, mes: mesAnterior, ano: anoAnterior } } })
   if (!indiceInicialRow) throw new Error(`No has cargado el índice de inflación de ${mesAnterior}/${anoAnterior} (mes anterior, necesario como base de comparación).`)
 
-  const indiceInicial = indiceInicialRow.indice
-  const indiceFinal = indiceFinalRow.indice
+  const indiceInicial = aNumero(indiceInicialRow.indice)
+  const indiceFinal = aNumero(indiceFinalRow.indice)
   const factor = indiceFinal / indiceInicial
 
   const finMes = new Date(ano, mes, 0, 23, 59, 59)
@@ -107,8 +108,8 @@ export async function calcularAjusteInflacion(empresaId: string, mes: number, an
   }
 
   // 3. Cerrar el asiento con la cuenta patrimonial de ajuste por inflación
-  const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
+  const totalDebit = lineas.reduce((s, l) => s + (aNumero(l.debit) || 0), 0)
+  const totalCredit = lineas.reduce((s, l) => s + (aNumero(l.credit) || 0), 0)
   const diff = round2(totalDebit - totalCredit)
   const ctaPatrimonio = await buscarCuentaPorUso(empresaId, 'AJUSTE_INFLACION_PATRIMONIO')
   if (diff > 0.01) lineas.push({ cuentaId: ctaPatrimonio.id, credit: diff, descripcion: 'Ajuste por inflación - partidas no monetarias' })

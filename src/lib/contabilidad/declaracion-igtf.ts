@@ -3,6 +3,7 @@
 // que el reporte de ISLR.
 
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export interface FilaIGTF {
   fecha: Date
@@ -45,9 +46,9 @@ export async function generarReporteIGTFMensual(empresaId: string, mes: number, 
     rifContraparte: f.rifContraparte,
     nombreContraparte: f.nombreContraparte,
     motivo: f.pagoDivisaOCripto ? 'Pago en divisas/cripto' : 'Efectivo (contribuyente especial)',
-    total: f.total,
-    porcentajeIGTF: f.porcentajeIGTF || 3,
-    montoIGTF: f.montoIGTF || 0,
+    total: aNumero(f.total),
+    porcentajeIGTF: f.porcentajeIGTF ? aNumero(f.porcentajeIGTF) : 3,
+    montoIGTF: aNumero(f.montoIGTF),
   }))
 
   return {

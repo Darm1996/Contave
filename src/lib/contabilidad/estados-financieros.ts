@@ -3,6 +3,7 @@
 // Estado de Resultados (Estado de Resultado Integral)
 
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export interface CuentaSaldo {
   codigo: string
@@ -90,8 +91,8 @@ export async function obtenerSaldosCuentas(empresaId: string, desde: Date, hasta
   for (const cuenta of cuentas) {
     const suma = sumaPorCuenta.get(cuenta.id)
     if (!suma) continue
-    const totalDebit = suma.debit || 0
-    const totalCredit = suma.credit || 0
+    const totalDebit = aNumero(suma.debit)
+    const totalCredit = aNumero(suma.credit)
     const saldo = cuenta.naturaleza === 'DEUDORA' ? totalDebit - totalCredit : totalCredit - totalDebit
     if (Math.abs(saldo) > 0.001) {
       resultado.push({

@@ -4,6 +4,7 @@
 
 import { db } from '@/lib/db'
 import type { Ejercicio, Prisma } from '@prisma/client'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 export type EjercicioInfo = Ejercicio
 
@@ -62,8 +63,8 @@ async function obtenerSaldosPorTipo(client: DbClient, empresaId: string, desde: 
   for (const cuenta of cuentas) {
     const suma = sumaPorCuenta.get(cuenta.id)
     if (!suma) continue
-    const tDeb = suma.debit || 0
-    const tCre = suma.credit || 0
+    const tDeb = aNumero(suma.debit)
+    const tCre = aNumero(suma.credit)
     const saldo = cuenta.naturaleza === 'DEUDORA' ? tDeb - tCre : tCre - tDeb
     if (Math.abs(saldo) > 0.001) {
       resultado.push({ cuentaId: cuenta.id, codigo: cuenta.codigo, nombre: cuenta.nombre, saldo, naturaleza: cuenta.naturaleza })
@@ -218,8 +219,8 @@ export async function cerrarEjercicio(
     for (const cuenta of cuentasBalance) {
       const sumaC = sumaBalancePorCuenta.get(cuenta.id)
       if (!sumaC) continue
-      const tDeb = sumaC.debit || 0
-      const tCre = sumaC.credit || 0
+      const tDeb = aNumero(sumaC.debit)
+      const tCre = aNumero(sumaC.credit)
       const saldo = cuenta.naturaleza === 'DEUDORA' ? tDeb - tCre : tCre - tDeb
       if (Math.abs(saldo) < 0.01) continue
       // En el asiento de apertura, las cuentas deudoras van al débito y acreedoras al crédito

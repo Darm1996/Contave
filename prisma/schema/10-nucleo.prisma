@@ -1,0 +1,360 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  NÚCLEO — tenencia, estructura física, identidad y permisos
+// ═══════════════════════════════════════════════════════════════════════
+
+// ───────────────────────────────────────────────────────────────────────
+//  IDENTIDAD
+// ───────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  // Rol de plataforma, no de negocio. SUPER_ADMIN es soporte de AdminHub;
+  // el rol con el que un usuario opera un negocio vive en Membresia.rol.
+  role         String   @default("CONTADOR") // SUPER_ADMIN, ADMIN, CONTADOR, AUXILIAR
+  activo       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  empresas    UserEmpresa[]
+  membresias  Membresia[]
+  facturas    Factura[]
+  asientos    Asiento[]
+  sesiones    Sesion[]
+  pagos       Pago[]
+  movimientos MovimientoInventario[]
+  ventas      Venta[]
+  compras     Compra[]
+  gastos      Gasto[]
+  sesionesCaja SesionCaja[]
+  arqueos     Arqueo[]
+
+  @@map("user")
+}
+
+model Sesion {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  TENENCIA
+// ───────────────────────────────────────────────────────────────────────
+
+// Raíz de tenencia. Un negocio del cliente = una Organizacion.
+//
+// La relación con Empresa merece explicación porque tiene consecuencias de
+// negocio: Organizacion es el NEGOCIO (cómo opera: rubro, monedas, cajas,
+// inventario) y Empresa es su IDENTIDAD FISCAL (RIF, alícuota, si es agente
+// de retención, calendario del SENIAT). Son 1:1 y obligatorias juntas.
+//
+// Se mantienen separadas en vez de fusionarlas porque el motor fiscal
+// heredado (declaración de IVA, ISLR, libros del SENIAT, ajuste por
+// inflación, nómina LOTTT) ya está escrito y probado contra empresaId. Al
+// conservar Empresa como perfil fiscal, ese motor sigue funcionando sin
+// tocarlo, y el motor fiscal queda aislado del operativo — que es
+// exactamente lo que pide el requisito de "capa fiscal parametrizable, no
+// incrustada en la lógica de ventas".
+model Organizacion {
+  id     String @id @default(cuid())
+  nombre String
+  // Determina qué módulo vertical se activa y qué comportamientos por
+  // defecto aplican (ej. lotes y vencimiento obligatorios en RESTAURANTE).
+  rubro  String @default("GENERAL") // GENERAL | RESTAURANTE | ROPA | QUIOSCO
+
+  // Perfil fiscal 1:1. Obligatorio: sin RIF no se puede facturar en Venezuela.
+  empresaId String  @unique
+  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  // Multimoneda: la funcional es la de los libros; la de referencia es la
+  // que el negocio usa para pensar en precios (típicamente USD en Venezuela).
+  monedaFuncional  String @default("VES")
+  monedaReferencia String @default("USD")
+
+  // Redondeo: criterio explícito y documentado, aplicado una sola vez al
+  // final de cada documento. decimalesRedondeo=2 y modo HALF_UP es el
+  // default comercial; incrementoRedondeo permite redondear al múltiplo más
+  // cercano (ej. 0.25) para negocios sin monedas fraccionarias.
+  decimalesRedondeo  Int     @default(2)
+  modoRedondeo       String  @default("HALF_UP") // HALF_UP | HALF_EVEN | UP | DOWN
+  incrementoRedondeo Decimal @default(0) @db.Decimal(18, 4)
+
+  // Plan del SaaS. Controla límites (sucursales, usuarios) en la capa de servicio.
+  plan   String  @default("BASICO") // BASICO | PRO | EMPRESARIAL
+  activo Boolean @default(true)
+
+  sucursales        Sucursal[]
+  almacenes         Almacen[]
+  membresias        Membresia[]
+  roles             Rol[]
+  unidadesMedida    UnidadMedida[]
+  categorias        Categoria[]
+  productos         Producto[]
+  variantes         Variante[]
+  atributos         Atributo[]
+  listasPrecios     ListaPrecio[]
+  precios           Precio[]
+  impuestos         Impuesto[]
+  existencias       Existencia[]
+  lotes             Lote[]
+  movimientos       MovimientoInventario[]
+  traslados         Traslado[]
+  tomasInventario   TomaInventario[]
+  proveedores       Proveedor[]
+  ordenesCompra     OrdenCompra[]
+  compras           Compra[]
+  clientes          Cliente[]
+  ventas            Venta[]
+  metodosPago       MetodoPago[]
+  pagos             Pago[]
+  cajas             Caja[]
+  sesionesCaja      SesionCaja[]
+  cuentasBancarias  CuentaBancaria[]
+  categoriasGasto   CategoriaGasto[]
+  gastos            Gasto[]
+  gastosRecurrentes GastoRecurrente[]
+  areas             Area[]
+  mesas             Mesa[]
+  comandas          Comanda[]
+  recetas           Receta[]
+  gruposModificador GrupoModificador[]
+  temporadas        Temporada[]
+  apartados         Apartado[]
+  bitacora          AuditLog[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@index([activo])
+  @@map("organizaciones")
+}
+
+model Sucursal {
+  id             String  @id @default(cuid())
+  organizacionId String
+  codigo         String
+  nombre         String
+  direccion      String?
+  telefono       String?
+  // Centro de costo: permite clasificar gastos y medir rentabilidad por sede.
+  centroCosto    String?
+  esPrincipal    Boolean @default(false)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+
+  almacenes   Almacen[]
+  cajas       Caja[]
+  ventas      Venta[]
+  compras     Compra[]
+  gastos      Gasto[]
+  areas       Area[]
+  membresias  MembresiaSucursal[]
+  tomas       TomaInventario[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, codigo])
+  @@index([organizacionId, activo])
+  @@map("sucursales")
+}
+
+// Un almacén es el lugar donde el stock existe físicamente. El kardex se
+// lleva por (variante, almacén): sin esto, un traslado entre sedes se ve
+// como una salida y una entrada sin relación y el inventario "desaparece".
+model Almacen {
+  id             String  @id @default(cuid())
+  organizacionId String
+  sucursalId     String
+  codigo         String
+  nombre         String
+  // Un almacén de venta alimenta el POS; uno de depósito no. Un negocio de
+  // restaurante suele tener cocina (insumos) y barra (bebidas) separados.
+  tipo           String  @default("VENTA") // VENTA | DEPOSITO | COCINA | MERMA | TRANSITO
+  esPredeterminado Boolean @default(false)
+  activo         Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  sucursal     Sucursal     @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+
+  existencias     Existencia[]
+  lotes           Lote[]
+  movimientos     MovimientoInventario[]
+  trasladosOrigen Traslado[]             @relation("TrasladoOrigen")
+  trasladosDestino Traslado[]            @relation("TrasladoDestino")
+  ventas          Venta[]
+  compras         Compra[]
+  tomas           TomaInventario[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, codigo])
+  @@index([organizacionId, sucursalId, activo])
+  @@map("almacenes")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  ROLES Y PERMISOS
+// ───────────────────────────────────────────────────────────────────────
+
+// Catálogo global de permisos, con la forma "modulo.accion"
+// (ej. producto.ver_costo, venta.autorizar_descuento). Es global y no por
+// organización porque la lista de acciones la define el sistema, no el
+// cliente.
+model Permiso {
+  clave       String @id
+  modulo      String
+  accion      String
+  descripcion String
+
+  roles RolPermiso[]
+
+  @@index([modulo])
+  @@map("permisos")
+}
+
+// Un rol pertenece a una organización. Los seis roles del requisito
+// (propietario, administrador, supervisor, cajero, almacenista, contador)
+// se crean como esSistema=true al crear la organización; el cliente puede
+// añadir roles propios pero no editar los del sistema.
+model Rol {
+  id             String  @id @default(cuid())
+  organizacionId String
+  clave          String
+  nombre         String
+  descripcion    String?
+  esSistema      Boolean @default(false)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  permisos     RolPermiso[]
+  membresias   Membresia[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizacionId, clave])
+  @@map("roles")
+}
+
+model RolPermiso {
+  rolId        String
+  permisoClave String
+
+  rol     Rol     @relation(fields: [rolId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoClave], references: [clave], onDelete: Cascade)
+
+  @@id([rolId, permisoClave])
+  @@index([permisoClave])
+  @@map("roles_permisos")
+}
+
+// Vínculo usuario ↔ organización con su rol. Reemplaza a UserEmpresa para
+// el mundo operativo (UserEmpresa se conserva para el módulo contable).
+model Membresia {
+  id             String  @id @default(cuid())
+  organizacionId String
+  userId         String
+  rolId          String
+  activo         Boolean @default(true)
+  // Empleado vinculado, si esta persona además cobra comisiones o marca turno.
+  empleadoId     String? @unique
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rol          Rol          @relation(fields: [rolId], references: [id])
+  empleado     Empleado?    @relation(fields: [empleadoId], references: [id])
+  sucursales   MembresiaSucursal[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, userId])
+  @@index([userId])
+  @@map("usuarios_organizacion")
+}
+
+// Restringe a un usuario a ciertas sucursales. Sin filas para una
+// membresía = acceso a todas las sucursales de la organización.
+model MembresiaSucursal {
+  membresiaId String
+  sucursalId  String
+
+  membresia Membresia @relation(fields: [membresiaId], references: [id], onDelete: Cascade)
+  sucursal  Sucursal  @relation(fields: [sucursalId], references: [id], onDelete: Cascade)
+
+  @@id([membresiaId, sucursalId])
+  @@index([sucursalId])
+  @@map("usuarios_sucursales")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  MULTIMONEDA
+// ───────────────────────────────────────────────────────────────────────
+
+// Historial de tasas por fecha. Un documento histórico NUNCA se recalcula:
+// cada venta, compra, pago y gasto guarda la tasa que se le aplicó, así que
+// un reporte del mes pasado da el mismo número hoy que mañana aunque el BCV
+// publique otra tasa. Esta tabla solo sirve para PROPONER la tasa del día.
+model TasaCambio {
+  id        String   @id @default(cuid())
+  empresaId String
+  fecha     DateTime @db.Date
+  monedaRef String   @default("USD")
+  tasa      Decimal  @db.Decimal(18, 8)
+  fuente    String   @default("BCV")
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([empresaId, fecha, monedaRef])
+  @@index([empresaId, monedaRef, fecha])
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  AUDITORÍA
+// ───────────────────────────────────────────────────────────────────────
+
+// Bitácora de operaciones sensibles: quién, qué, cuándo, valor anterior y
+// nuevo. userEmail se guarda denormalizado para que el registro siga siendo
+// legible aunque el usuario cambie de email o se elimine.
+model AuditLog {
+  id             String  @id @default(cuid())
+  empresaId      String
+  organizacionId String?
+  userId         String?
+  userEmail      String
+  accion         String
+  entidad        String?
+  entidadId      String?
+  detalle        String?
+  // Valor anterior y nuevo en JSON, para poder reconstruir qué cambió.
+  valorAnterior  String?
+  valorNuevo     String?
+  ip             String?
+
+  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  organizacion Organizacion? @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+
+  @@index([empresaId, createdAt])
+  @@index([organizacionId, createdAt])
+  @@index([entidad, entidadId])
+  @@map("bitacora_auditoria")
+}

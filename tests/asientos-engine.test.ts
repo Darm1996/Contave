@@ -1,4 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest'
+import { iguales, sumarPor, igual } from '@/lib/nucleo/dinero'
 import {
   generarAsientoCompra,
   generarAsientoVenta,
@@ -33,8 +34,8 @@ describe('asientos-engine (partida doble)', () => {
       usoGasto: 'GASTO_OTROS',
     })
     expect(r.balanceado).toBe(true)
-    expect(r.totalDebit).toBeCloseTo(r.totalCredit, 2)
-    expect(r.totalDebit).toBeCloseTo(1160, 2)
+    expect(iguales(r.totalDebit, r.totalCredit)).toBe(true)
+    expect(igual(r.totalDebit, '1160')).toBe(true)
   })
 
   it('genera un asiento de COMPRA balanceado con retención de IVA y de ISLR', async () => {
@@ -58,7 +59,7 @@ describe('asientos-engine (partida doble)', () => {
       esInventario: true,
     })
     expect(r.balanceado).toBe(true)
-    expect(r.totalDebit).toBeCloseTo(r.totalCredit, 2)
+    expect(iguales(r.totalDebit, r.totalCredit)).toBe(true)
   })
 
   it('genera un asiento de VENTA balanceado', async () => {
@@ -175,8 +176,10 @@ describe('asientos-engine (partida doble)', () => {
       r.lineas,
     )
     expect(asiento.lineas.length).toBe(r.lineas.length)
-    const sumaDebit = asiento.lineas.reduce((s, l) => s + l.debit, 0)
-    const sumaCredit = asiento.lineas.reduce((s, l) => s + l.credit, 0)
-    expect(sumaDebit).toBeCloseTo(sumaCredit, 2)
+    // La partida doble se comprueba con aritmética exacta: sumar Decimal
+    // con `+` los concatenaría como texto en vez de sumarlos.
+    const sumaDebit = sumarPor(asiento.lineas, (l) => l.debit)
+    const sumaCredit = sumarPor(asiento.lineas, (l) => l.credit)
+    expect(iguales(sumaDebit, sumaCredit)).toBe(true)
   })
 })

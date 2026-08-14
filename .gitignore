@@ -30,8 +30,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma migrations
-prisma/migrations/
+# Las migraciones de Prisma SÍ se versionan: son el historial de cambios de
+# la base de datos y sin ellas no hay forma de reproducir un entorno ni de
+# saber qué se aplicó en producción.
 
 # logs
 *.log

@@ -2,6 +2,7 @@
 // exigido por el Código de Comercio venezolano para compañías anónimas).
 
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -26,16 +27,16 @@ export async function registrarAccionista(empresaId: string, input: AccionistaIn
 
 export async function listarAccionistas(empresaId: string) {
   const accionistas = await db.accionista.findMany({ where: { empresaId }, orderBy: { nombre: 'asc' } })
-  const totalAcciones = accionistas.filter((a) => a.activo).reduce((s, a) => s + a.numeroAcciones, 0)
+  const totalAcciones = accionistas.filter((a) => a.activo).reduce((s, a) => s + aNumero(a.numeroAcciones), 0)
   return accionistas.map((a) => ({
     ...a,
-    porcentajeParticipacion: totalAcciones > 0 ? round2((a.numeroAcciones / totalAcciones) * 100) : 0,
+    porcentajeParticipacion: totalAcciones > 0 ? round2((aNumero(a.numeroAcciones) / totalAcciones) * 100) : 0,
   }))
 }
 
 export async function totalAccionesVigentes(empresaId: string): Promise<number> {
   const accionistas = await db.accionista.findMany({ where: { empresaId, activo: true } })
-  return accionistas.reduce((s, a) => s + a.numeroAcciones, 0)
+  return accionistas.reduce((s, a) => s + aNumero(a.numeroAcciones), 0)
 }
 
 export async function desactivarAccionista(empresaId: string, id: string) {
@@ -82,6 +83,6 @@ export async function listarActas(empresaId: string) {
   ])
   return actas.map((a) => ({
     ...a,
-    quorumPorcentaje: totalAcciones > 0 ? round2((a.accionesRepresentadas / totalAcciones) * 100) : 0,
+    quorumPorcentaje: totalAcciones > 0 ? round2((aNumero(a.accionesRepresentadas) / totalAcciones) * 100) : 0,
   }))
 }

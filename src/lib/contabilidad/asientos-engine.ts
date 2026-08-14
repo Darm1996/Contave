@@ -4,6 +4,19 @@
 
 import { db } from '@/lib/db'
 import { calcularRetencionIVA } from './ven-nif'
+import {
+  d,
+  suma,
+  resta,
+  mult,
+  div,
+  redondear,
+  esPositivo,
+  iguales,
+  sumarPor,
+  type Numerico,
+  type Decimal,
+} from '@/lib/nucleo/dinero'
 
 // Catálogo de cuentas por "uso" que el motor necesita
 // Estas son las cuentas que el motor buscará en la empresa para generar asientos
@@ -57,16 +70,16 @@ export const USOS_REQUERIDOS = {
 
 export interface LineaAsientoInput {
   cuentaId: string
-  debit?: number
-  credit?: number
+  debit?: Numerico
+  credit?: Numerico
   descripcion?: string
 }
 
 export interface ResultadoAsiento {
   descripcion: string
   lineas: LineaAsientoInput[]
-  totalDebit: number
-  totalCredit: number
+  totalDebit: Decimal
+  totalCredit: Decimal
   balanceado: boolean
 }
 
@@ -99,19 +112,19 @@ export async function generarAsientoCompra(factura: {
   empresaId: string
   tipo: string
   monedaOriginal: string
-  baseImponible: number
-  montoExento: number
-  montoExonerado: number
-  montoIVA: number
-  subtotal: number
-  total: number
-  montoRetencionIVA: number | null
-  montoRetencionISLR?: number | null
-  porcentajeRetencionISLR?: number | null
-  montoIGTF?: number | null
-  porcentajeIGTF?: number | null
-  totalAPagar: number
-  totalMonedaFuncional: number
+  baseImponible: Numerico
+  montoExento: Numerico
+  montoExonerado: Numerico
+  montoIVA: Numerico
+  subtotal: Numerico
+  total: Numerico
+  montoRetencionIVA: Numerico | null
+  montoRetencionISLR?: Numerico | null
+  porcentajeRetencionISLR?: Numerico | null
+  montoIGTF?: Numerico | null
+  porcentajeIGTF?: Numerico | null
+  totalAPagar: Numerico
+  totalMonedaFuncional: Numerico
   descripcion: string | null
   esInventario: boolean // true = compra mercancía, false = gasto
   usoGasto?: string // si es gasto, qué tipo (GASTO_SERVICIOS_BASICOS, etc.)
@@ -121,41 +134,46 @@ export async function generarAsientoCompra(factura: {
   if (!empresa) throw new Error('Empresa no encontrada')
 
   // Convertir todos los montos a moneda funcional (Bs.) para el asiento
-  const mf = (n: number) => factura.totalMonedaFuncional && factura.total > 0
-    ? (n * factura.totalMonedaFuncional) / factura.total
-    : n
+  // Proporción de conversión a moneda funcional: si la factura vino en
+  // divisa, cada renglón se convierte con la MISMA proporción que el total,
+  // de modo que la suma de los renglones convertidos siga cuadrando con el
+  // total convertido que quedó guardado en el documento.
+  const mf = (n: Numerico): Decimal =>
+    esPositivo(factura.total) && esPositivo(factura.totalMonedaFuncional)
+      ? div(mult(n, factura.totalMonedaFuncional), factura.total)
+      : d(n)
 
   const baseMF = mf(factura.baseImponible)
   const exentoMF = mf(factura.montoExento)
   const exoneradoMF = mf(factura.montoExonerado)
   const ivaMF = mf(factura.montoIVA)
-  const retMF = factura.montoRetencionIVA ? mf(factura.montoRetencionIVA) : 0
+  const retMF = factura.montoRetencionIVA ? mf(factura.montoRetencionIVA) : d(0)
   const totalAPagarMF = mf(factura.totalAPagar)
 
   // 1. Débito a Inventario o Gasto
   if (factura.esInventario) {
     const cuenta = await buscarCuentaPorUso(factura.empresaId, 'MERCANCIA')
-    lineas.push({ cuentaId: cuenta.id, debit: baseMF + exentoMF + exoneradoMF, descripcion: 'Mercancía comprada' })
+    lineas.push({ cuentaId: cuenta.id, debit: redondear(suma(baseMF, exentoMF, exoneradoMF)), descripcion: 'Mercancía comprada' })
   } else {
     const usoG = factura.usoGasto || 'GASTO_OTROS'
     const cuenta = await buscarCuentaGasto(factura.empresaId, usoG)
-    lineas.push({ cuentaId: cuenta.id, debit: baseMF + exentoMF + exoneradoMF, descripcion: 'Gasto operacional' })
+    lineas.push({ cuentaId: cuenta.id, debit: redondear(suma(baseMF, exentoMF, exoneradoMF)), descripcion: 'Gasto operacional' })
   }
 
   // 2. Débito a IVA Crédito Fiscal (si hay IVA)
-  if (ivaMF > 0) {
+  if (esPositivo(ivaMF)) {
     const cuenta = await buscarCuentaPorUso(factura.empresaId, 'IVA_CREDITO_FISCAL')
     lineas.push({ cuentaId: cuenta.id, debit: ivaMF, descripcion: 'IVA crédito fiscal 16%' })
   }
 
   // 3. Crédito a Retención IVA Soportada (si la empresa es agente de retención y se aplicó retención)
-  if (retMF > 0) {
+  if (esPositivo(retMF)) {
     const cuenta = await buscarCuentaPorUso(factura.empresaId, 'RET_IVA_SOPORTADA')
     lineas.push({ cuentaId: cuenta.id, credit: retMF, descripcion: 'Retención IVA soportada' })
   }
 
   // 3.b Crédito a ISLR por Pagar (si se aplicó retención ISLR)
-  if (factura.montoRetencionISLR && factura.montoRetencionISLR > 0) {
+  if (factura.montoRetencionISLR && esPositivo(factura.montoRetencionISLR)) {
     const islrMF = mf(factura.montoRetencionISLR)
     // Buscar cuenta ISLR_POR_PAGAR; si no existe, usar IMPUESTOS_POR_PAGAR fallback
     let ctaISLR
@@ -170,25 +188,25 @@ export async function generarAsientoCompra(factura: {
   // 3.c Débito a Gasto IGTF (3% sobre pago en divisas/cripto, no recuperable).
   // Se suma al monto a pagar (aumenta el desembolso total de la transacción,
   // el IGTF no es parte de lo que se le debe al proveedor sino un costo aparte).
-  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : 0
-  if (igtfMF > 0) {
+  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : d(0)
+  if (esPositivo(igtfMF)) {
     const ctaIgtf = await buscarCuentaPorUso(factura.empresaId, 'GASTO_IGTF')
     lineas.push({ cuentaId: ctaIgtf.id, debit: igtfMF, descripcion: `IGTF (${factura.porcentajeIGTF || 3}%)` })
   }
 
   // 4. Crédito a CxP Proveedores por el monto a pagar (total - retenciones + IGTF)
   const ctaCxp = await buscarCuentaPorUso(factura.empresaId, 'CXP_PROVEEDORES')
-  lineas.push({ cuentaId: ctaCxp.id, credit: totalAPagarMF + igtfMF, descripcion: 'CxP proveedor' })
+  lineas.push({ cuentaId: ctaCxp.id, credit: redondear(suma(totalAPagarMF, igtfMF)), descripcion: 'CxP proveedor' })
 
-  const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
+  const totalDebit = sumarPor(lineas, (l) => l.debit)
+  const totalCredit = sumarPor(lineas, (l) => l.credit)
 
   return {
     descripcion: factura.descripcion || `Compra - ${factura.tipo}`,
     lineas,
     totalDebit,
     totalCredit,
-    balanceado: Math.abs(totalDebit - totalCredit) < 0.01,
+    balanceado: iguales(totalDebit, totalCredit),
   }
 }
 
@@ -204,26 +222,31 @@ export async function generarAsientoCompra(factura: {
 //   Débito: Retención IVA Soportada ............................... Z (es nuestro crédito)
 export async function generarAsientoVenta(factura: {
   empresaId: string
-  baseImponible: number
-  montoExento: number
-  montoIVA: number
-  subtotal: number
-  total: number
-  montoRetencionIVA: number | null
-  totalAPagar: number
-  totalMonedaFuncional: number
+  baseImponible: Numerico
+  montoExento: Numerico
+  montoIVA: Numerico
+  subtotal: Numerico
+  total: Numerico
+  montoRetencionIVA: Numerico | null
+  totalAPagar: Numerico
+  totalMonedaFuncional: Numerico
   descripcion: string | null
   clienteRetieneIVA: boolean // true si el cliente es agente de retención
 }): Promise<ResultadoAsiento> {
   const lineas: LineaAsientoInput[] = []
-  const mf = (n: number) => factura.totalMonedaFuncional && factura.total > 0
-    ? (n * factura.totalMonedaFuncional) / factura.total
-    : n
+  // Proporción de conversión a moneda funcional: si la factura vino en
+  // divisa, cada renglón se convierte con la MISMA proporción que el total,
+  // de modo que la suma de los renglones convertidos siga cuadrando con el
+  // total convertido que quedó guardado en el documento.
+  const mf = (n: Numerico): Decimal =>
+    esPositivo(factura.total) && esPositivo(factura.totalMonedaFuncional)
+      ? div(mult(n, factura.totalMonedaFuncional), factura.total)
+      : d(n)
 
   const baseMF = mf(factura.baseImponible)
   const exentoMF = mf(factura.montoExento)
   const ivaMF = mf(factura.montoIVA)
-  const retMF = factura.montoRetencionIVA ? mf(factura.montoRetencionIVA) : 0
+  const retMF = factura.montoRetencionIVA ? mf(factura.montoRetencionIVA) : d(0)
   const totalMF = mf(factura.total)
   const totalAPagarMF = mf(factura.totalAPagar)
 
@@ -232,7 +255,7 @@ export async function generarAsientoVenta(factura: {
   lineas.push({ cuentaId: ctaCxc.id, debit: totalMF, descripcion: 'CxC cliente - venta' })
 
   // 2. Si el cliente retiene IVA, ese monto se va como activo (Retención IVA Soportada)
-  if (retMF > 0 && factura.clienteRetieneIVA) {
+  if (esPositivo(retMF) && factura.clienteRetieneIVA) {
     const cta = await buscarCuentaPorUso(factura.empresaId, 'RET_IVA_SOPORTADA')
     lineas.push({ cuentaId: cta.id, debit: retMF, descripcion: 'Retención IVA que aplicó el cliente' })
     // Y se compensa con un crédito a CxC
@@ -240,24 +263,24 @@ export async function generarAsientoVenta(factura: {
   }
 
   // 3. Crédito a Ventas (base imponible + exento)
-  const ctaVentas = await buscarCuentaPorUso(factura.empresaId, baseMF > 0 ? 'VENTAS_GRAVABLES' : 'VENTAS_EXENTAS')
-  lineas.push({ cuentaId: ctaVentas.id, credit: baseMF + exentoMF, descripcion: 'Ventas gravables' })
+  const ctaVentas = await buscarCuentaPorUso(factura.empresaId, esPositivo(baseMF) ? 'VENTAS_GRAVABLES' : 'VENTAS_EXENTAS')
+  lineas.push({ cuentaId: ctaVentas.id, credit: redondear(suma(baseMF, exentoMF)), descripcion: 'Ventas gravables' })
 
   // 4. Crédito a IVA Débito Fiscal
-  if (ivaMF > 0) {
+  if (esPositivo(ivaMF)) {
     const cta = await buscarCuentaPorUso(factura.empresaId, 'IVA_DEBITO_FISCAL')
     lineas.push({ cuentaId: cta.id, credit: ivaMF, descripcion: 'IVA débito fiscal 16%' })
   }
 
-  const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
+  const totalDebit = sumarPor(lineas, (l) => l.debit)
+  const totalCredit = sumarPor(lineas, (l) => l.credit)
 
   return {
     descripcion: factura.descripcion || 'Venta',
     lineas,
     totalDebit,
     totalCredit,
-    balanceado: Math.abs(totalDebit - totalCredit) < 0.01,
+    balanceado: iguales(totalDebit, totalCredit),
   }
 }
 
@@ -267,18 +290,23 @@ export async function generarAsientoVenta(factura: {
 export async function generarAsientoNota(factura: {
   empresaId: string
   tipo: string // NOTA_CREDITO o NOTA_DEBITO
-  baseImponible: number
-  montoExento: number
-  montoIVA: number
-  total: number
-  totalMonedaFuncional: number
+  baseImponible: Numerico
+  montoExento: Numerico
+  montoIVA: Numerico
+  total: Numerico
+  totalMonedaFuncional: Numerico
   descripcion: string | null
   aplicaA: 'COMPRA' | 'VENTA' // si es nota sobre compra o venta
 }): Promise<ResultadoAsiento> {
   const lineas: LineaAsientoInput[] = []
-  const mf = (n: number) => factura.totalMonedaFuncional && factura.total > 0
-    ? (n * factura.totalMonedaFuncional) / factura.total
-    : n
+  // Proporción de conversión a moneda funcional: si la factura vino en
+  // divisa, cada renglón se convierte con la MISMA proporción que el total,
+  // de modo que la suma de los renglones convertidos siga cuadrando con el
+  // total convertido que quedó guardado en el documento.
+  const mf = (n: Numerico): Decimal =>
+    esPositivo(factura.total) && esPositivo(factura.totalMonedaFuncional)
+      ? div(mult(n, factura.totalMonedaFuncional), factura.total)
+      : d(n)
 
   const baseMF = mf(factura.baseImponible)
   const exentoMF = mf(factura.montoExento)
@@ -288,11 +316,11 @@ export async function generarAsientoNota(factura: {
   const esCredito = factura.tipo === 'NOTA_CREDITO'
   // Si es crédito, se invierten las cuentas (debit↔credit)
   const signo = esCredito ? -1 : 1
-  const aplicarDebit = (cuentaId: string, monto: number, desc: string) => {
+  const aplicarDebit = (cuentaId: string, monto: Numerico, desc: string) => {
     if (signo > 0) lineas.push({ cuentaId, debit: monto, descripcion: desc })
     else lineas.push({ cuentaId, credit: monto, descripcion: desc })
   }
-  const aplicarCredit = (cuentaId: string, monto: number, desc: string) => {
+  const aplicarCredit = (cuentaId: string, monto: Numerico, desc: string) => {
     if (signo > 0) lineas.push({ cuentaId, credit: monto, descripcion: desc })
     else lineas.push({ cuentaId, debit: monto, descripcion: desc })
   }
@@ -300,8 +328,8 @@ export async function generarAsientoNota(factura: {
   if (factura.aplicaA === 'COMPRA') {
     // Nota sobre compra: reversa del asiento de compra
     const ctaMercancia = await buscarCuentaPorUso(factura.empresaId, 'MERCANCIA')
-    aplicarDebit(ctaMercancia.id, baseMF + exentoMF, 'Reversa mercancía')
-    if (ivaMF > 0) {
+    aplicarDebit(ctaMercancia.id, redondear(suma(baseMF, exentoMF)), 'Reversa mercancía')
+    if (esPositivo(ivaMF)) {
       const ctaIva = await buscarCuentaPorUso(factura.empresaId, 'IVA_CREDITO_FISCAL')
       aplicarDebit(ctaIva.id, ivaMF, 'Reversa IVA crédito fiscal')
     }
@@ -311,23 +339,23 @@ export async function generarAsientoNota(factura: {
     // Nota sobre venta: reversa del asiento de venta
     const ctaCxc = await buscarCuentaPorUso(factura.empresaId, 'CXC_CLIENTES')
     aplicarDebit(ctaCxc.id, totalMF, 'Reversa CxC cliente')
-    const ctaVentas = await buscarCuentaPorUso(factura.empresaId, baseMF > 0 ? 'VENTAS_GRAVABLES' : 'VENTAS_EXENTAS')
-    aplicarCredit(ctaVentas.id, baseMF + exentoMF, 'Reversa ventas')
-    if (ivaMF > 0) {
+    const ctaVentas = await buscarCuentaPorUso(factura.empresaId, esPositivo(baseMF) ? 'VENTAS_GRAVABLES' : 'VENTAS_EXENTAS')
+    aplicarCredit(ctaVentas.id, redondear(suma(baseMF, exentoMF)), 'Reversa ventas')
+    if (esPositivo(ivaMF)) {
       const ctaIva = await buscarCuentaPorUso(factura.empresaId, 'IVA_DEBITO_FISCAL')
       aplicarCredit(ctaIva.id, ivaMF, 'Reversa IVA débito fiscal')
     }
   }
 
-  const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
+  const totalDebit = sumarPor(lineas, (l) => l.debit)
+  const totalCredit = sumarPor(lineas, (l) => l.credit)
 
   return {
     descripcion: factura.descripcion || `Nota ${esCredito ? 'crédito' : 'débito'} - ${factura.aplicaA}`,
     lineas,
     totalDebit,
     totalCredit,
-    balanceado: Math.abs(totalDebit - totalCredit) < 0.01,
+    balanceado: iguales(totalDebit, totalCredit),
   }
 }
 
@@ -337,23 +365,28 @@ export async function generarAsientoNota(factura: {
 //   Crédito: Caja / Caja Chica
 export async function generarAsientoGastoMenor(factura: {
   empresaId: string
-  baseImponible: number
-  montoExento: number
-  montoIVA: number
-  total: number
-  totalAPagar?: number
-  totalMonedaFuncional: number
-  montoRetencionISLR?: number | null
-  porcentajeRetencionISLR?: number | null
-  montoIGTF?: number | null
-  porcentajeIGTF?: number | null
+  baseImponible: Numerico
+  montoExento: Numerico
+  montoIVA: Numerico
+  total: Numerico
+  totalAPagar?: Numerico
+  totalMonedaFuncional: Numerico
+  montoRetencionISLR?: Numerico | null
+  porcentajeRetencionISLR?: Numerico | null
+  montoIGTF?: Numerico | null
+  porcentajeIGTF?: Numerico | null
   descripcion: string | null
   usoGasto: string
 }): Promise<ResultadoAsiento> {
   const lineas: LineaAsientoInput[] = []
-  const mf = (n: number) => factura.totalMonedaFuncional && factura.total > 0
-    ? (n * factura.totalMonedaFuncional) / factura.total
-    : n
+  // Proporción de conversión a moneda funcional: si la factura vino en
+  // divisa, cada renglón se convierte con la MISMA proporción que el total,
+  // de modo que la suma de los renglones convertidos siga cuadrando con el
+  // total convertido que quedó guardado en el documento.
+  const mf = (n: Numerico): Decimal =>
+    esPositivo(factura.total) && esPositivo(factura.totalMonedaFuncional)
+      ? div(mult(n, factura.totalMonedaFuncional), factura.total)
+      : d(n)
 
   const baseMF = mf(factura.baseImponible)
   const exentoMF = mf(factura.montoExento)
@@ -362,15 +395,15 @@ export async function generarAsientoGastoMenor(factura: {
   const totalAPagarMF = factura.totalAPagar ? mf(factura.totalAPagar) : totalMF
 
   const ctaGasto = await buscarCuentaGasto(factura.empresaId, factura.usoGasto)
-  lineas.push({ cuentaId: ctaGasto.id, debit: baseMF + exentoMF, descripcion: 'Gasto menor' })
+  lineas.push({ cuentaId: ctaGasto.id, debit: redondear(suma(baseMF, exentoMF)), descripcion: 'Gasto menor' })
 
-  if (ivaMF > 0) {
+  if (esPositivo(ivaMF)) {
     const ctaIva = await buscarCuentaPorUso(factura.empresaId, 'IVA_CREDITO_FISCAL')
     lineas.push({ cuentaId: ctaIva.id, debit: ivaMF, descripcion: 'IVA crédito fiscal' })
   }
 
   // Crédito a ISLR por Pagar (si aplica)
-  if (factura.montoRetencionISLR && factura.montoRetencionISLR > 0) {
+  if (factura.montoRetencionISLR && esPositivo(factura.montoRetencionISLR)) {
     const islrMF = mf(factura.montoRetencionISLR)
     let ctaISLR
     try {
@@ -381,24 +414,24 @@ export async function generarAsientoGastoMenor(factura: {
     lineas.push({ cuentaId: ctaISLR.id, credit: islrMF, descripcion: `Retención ISLR (${factura.porcentajeRetencionISLR || 0}%)` })
   }
 
-  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : 0
-  if (igtfMF > 0) {
+  const igtfMF = factura.montoIGTF ? mf(factura.montoIGTF) : d(0)
+  if (esPositivo(igtfMF)) {
     const ctaIgtf = await buscarCuentaPorUso(factura.empresaId, 'GASTO_IGTF')
     lineas.push({ cuentaId: ctaIgtf.id, debit: igtfMF, descripcion: `IGTF (${factura.porcentajeIGTF || 3}%)` })
   }
 
   const ctaCaja = await buscarCuentaPorUso(factura.empresaId, 'CAJA_CHICA')
-  lineas.push({ cuentaId: ctaCaja.id, credit: totalAPagarMF + igtfMF, descripcion: 'Salida de caja chica' })
+  lineas.push({ cuentaId: ctaCaja.id, credit: redondear(suma(totalAPagarMF, igtfMF)), descripcion: 'Salida de caja chica' })
 
-  const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
+  const totalDebit = sumarPor(lineas, (l) => l.debit)
+  const totalCredit = sumarPor(lineas, (l) => l.credit)
 
   return {
     descripcion: factura.descripcion || 'Gasto menor',
     lineas,
     totalDebit,
     totalCredit,
-    balanceado: Math.abs(totalDebit - totalCredit) < 0.01,
+    balanceado: iguales(totalDebit, totalCredit),
   }
 }
 

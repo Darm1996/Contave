@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { calcularDeclaracionIVA } from '@/lib/contabilidad/declaracion-iva'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 // GET /api/declaracion-iva?mes=7&ano=2026
 export async function GET(req: NextRequest) {
@@ -31,14 +32,28 @@ export async function GET(req: NextRequest) {
     // Para simplificar: crédito fiscal anterior = suma de IVA en compras - suma de IVA en ventas (si negativo, es crédito a favor)
     const ivaComprasAnterior = facturasMesAnterior
       .filter((f) => ['COMPRA', 'GASTO_MENOR'].includes(f.tipo))
-      .reduce((s, f) => s + f.montoIVA, 0)
+      .reduce((s, f) => s + aNumero(f.montoIVA), 0)
     const ivaVentasAnterior = facturasMesAnterior
       .filter((f) => f.tipo === 'VENTA')
-      .reduce((s, f) => s + f.montoIVA, 0)
+      .reduce((s, f) => s + aNumero(f.montoIVA), 0)
     const creditoFiscalAnterior = Math.max(0, ivaComprasAnterior - ivaVentasAnterior)
 
     // Calcular declaración
-    const declaracion = calcularDeclaracionIVA(facturasMes, mes, ano, creditoFiscalAnterior)
+    // El motor de la declaración trabaja con number: los Decimal se
+    // desempacan aquí, en un único punto, conservando el valor exacto que
+    // quedó guardado en cada documento.
+    const facturasParaDeclaracion = facturasMes.map((f) => ({
+      tipo: f.tipo,
+      fechaEmision: f.fechaEmision,
+      baseImponible: aNumero(f.baseImponible),
+      montoExento: aNumero(f.montoExento),
+      montoExonerado: aNumero(f.montoExonerado),
+      alicuotaIVA: aNumero(f.alicuotaIVA),
+      montoIVA: aNumero(f.montoIVA),
+      montoRetencionIVA: f.montoRetencionIVA === null ? null : aNumero(f.montoRetencionIVA),
+      ncfAfectaVenta: f.ncfAfectaVenta,
+    }))
+    const declaracion = calcularDeclaracionIVA(facturasParaDeclaracion, mes, ano, creditoFiscalAnterior)
 
     return NextResponse.json({ declaracion })
   } catch (e: any) {

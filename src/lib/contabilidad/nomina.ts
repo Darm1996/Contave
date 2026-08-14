@@ -7,8 +7,34 @@
 
 import { db } from '@/lib/db'
 import { buscarCuentaPorUso, buscarCuentaGasto, persistirAsiento, LineaAsientoInput } from './asientos-engine'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 const PORCENTAJE_IVSS_EMPLEADO = 4
+
+/**
+ * Desempaca los porcentajes de nómina de la empresa a `number`.
+ *
+ * Las columnas son Decimal en la base (almacenamiento exacto); el cálculo de
+ * nómina LOTTT trabaja con `number` y esta es su frontera explícita de
+ * entrada, en un solo lugar en vez de repartida por el motor.
+ */
+export function parametrosNominaDe(empresa: {
+  porcentajeIVSSPatronal: unknown
+  porcentajeFAOVEmpleado: unknown
+  porcentajeFAOVPatronal: unknown
+  porcentajeINCES: unknown
+  diasPrestacionesPorMes: unknown
+  porcentajeUtilidades: unknown
+}) {
+  return {
+    porcentajeIVSSPatronal: aNumero(empresa.porcentajeIVSSPatronal as never),
+    porcentajeFAOVEmpleado: aNumero(empresa.porcentajeFAOVEmpleado as never),
+    porcentajeFAOVPatronal: aNumero(empresa.porcentajeFAOVPatronal as never),
+    porcentajeINCES: aNumero(empresa.porcentajeINCES as never),
+    diasPrestacionesPorMes: aNumero(empresa.diasPrestacionesPorMes as never),
+    porcentajeUtilidades: aNumero(empresa.porcentajeUtilidades as never),
+  }
+}
 
 export interface EmpleadoInput {
   cedula: string
@@ -118,7 +144,12 @@ export async function procesarNomina(empresaId: string, mes: number, ano: number
 
   const detalles = empleados.map((emp) => {
     const ov = overridesMap.get(emp.id)
-    const calc = calcularNominaEmpleado(emp.salarioBase, ov?.diasTrabajados ?? 30, ov?.bonoAlimentacion ?? 0, empresa)
+    const calc = calcularNominaEmpleado(
+      aNumero(emp.salarioBase),
+      ov?.diasTrabajados ?? 30,
+      ov?.bonoAlimentacion ?? 0,
+      parametrosNominaDe(empresa),
+    )
     return { empleadoId: emp.id, ...calc }
   })
 
@@ -164,8 +195,8 @@ export async function procesarNomina(empresaId: string, mes: number, ano: number
   const ctaSueldosPagar = await buscarCuentaPorUso(empresaId, 'NOMINA_SUELDOS_POR_PAGAR')
   lineas.push({ cuentaId: ctaSueldosPagar.id, credit: round2(totales.totalNeto), descripcion: 'Neto a pagar a empleados' })
 
-  const totalDebit = lineas.reduce((s, l) => s + (l.debit || 0), 0)
-  const totalCredit = lineas.reduce((s, l) => s + (l.credit || 0), 0)
+  const totalDebit = lineas.reduce((s, l) => s + (aNumero(l.debit) || 0), 0)
+  const totalCredit = lineas.reduce((s, l) => s + (aNumero(l.credit) || 0), 0)
   if (Math.abs(totalDebit - totalCredit) > 0.05) {
     throw new Error(`Asiento de nómina no balanceado. Débito: ${totalDebit}, Crédito: ${totalCredit}`)
   }

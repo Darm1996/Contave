@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { montoDeuda } from '@/lib/contabilidad/cuentas-por-cobrar-pagar'
+import { suma, resta, mult, div, sumarPor } from '@/lib/nucleo/dinero'
+import { ok, manejarError } from '@/lib/nucleo/respuesta'
 
 export async function GET() {
   try {
@@ -15,31 +16,44 @@ export async function GET() {
     const facturasMes = await db.factura.findMany({
       where: { empresaId, fechaEmision: { gte: inicioMes, lte: finMes } },
     })
-    const totalCompras = facturasMes
-      .filter((f) => f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR')
-      .reduce((s, f) => s + f.totalMonedaFuncional, 0)
-    const totalVentas = facturasMes
-      .filter((f) => f.tipo === 'VENTA')
-      .reduce((s, f) => s + f.totalMonedaFuncional, 0)
-    const totalIVACredito = facturasMes
-      .filter((f) => ['COMPRA', 'GASTO_MENOR'].includes(f.tipo))
-      .reduce((s, f) => s + (f.totalMonedaFuncional / f.total) * f.montoIVA, 0)
-    const totalIVADebito = facturasMes
-      .filter((f) => f.tipo === 'VENTA')
-      .reduce((s, f) => s + (f.totalMonedaFuncional / f.total) * f.montoIVA, 0)
-    const totalRetencionesIVA = facturasMes
-      .filter((f) => f.montoRetencionIVA)
-      .reduce((s, f) => s + (f.montoRetencionIVA || 0) * (f.totalMonedaFuncional / f.total), 0)
-    const totalRetencionesISLR = facturasMes
-      .filter((f) => f.montoRetencionISLR)
-      .reduce((s, f) => s + (f.montoRetencionISLR || 0) * (f.totalMonedaFuncional / f.total), 0)
-    const totalIGTF = facturasMes
-      .filter((f) => f.montoIGTF)
-      .reduce((s, f) => s + (f.montoIGTF || 0) * (f.totalMonedaFuncional / f.total), 0)
+    // Proporción de conversión a moneda funcional de una factura: se usa la
+    // tasa que quedó congelada en el documento, no la tasa de hoy, para que
+    // este panel muestre lo mismo mañana que hoy.
+    const proporcionMF = (f: { total: unknown; totalMonedaFuncional: unknown }) =>
+      div(f.totalMonedaFuncional as never, f.total as never, 1)
+
+    const totalCompras = sumarPor(
+      facturasMes.filter((f) => f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR'),
+      (f) => f.totalMonedaFuncional,
+    )
+    const totalVentas = sumarPor(
+      facturasMes.filter((f) => f.tipo === 'VENTA'),
+      (f) => f.totalMonedaFuncional,
+    )
+    const totalIVACredito = sumarPor(
+      facturasMes.filter((f) => ['COMPRA', 'GASTO_MENOR'].includes(f.tipo)),
+      (f) => mult(proporcionMF(f), f.montoIVA),
+    )
+    const totalIVADebito = sumarPor(
+      facturasMes.filter((f) => f.tipo === 'VENTA'),
+      (f) => mult(proporcionMF(f), f.montoIVA),
+    )
+    const totalRetencionesIVA = sumarPor(
+      facturasMes.filter((f) => f.montoRetencionIVA),
+      (f) => mult(f.montoRetencionIVA ?? 0, proporcionMF(f)),
+    )
+    const totalRetencionesISLR = sumarPor(
+      facturasMes.filter((f) => f.montoRetencionISLR),
+      (f) => mult(f.montoRetencionISLR ?? 0, proporcionMF(f)),
+    )
+    const totalIGTF = sumarPor(
+      facturasMes.filter((f) => f.montoIGTF),
+      (f) => mult(f.montoIGTF ?? 0, proporcionMF(f)),
+    )
 
     // Módulos nuevos: activos fijos, nómina del mes, ajuste por inflación del mes
     const activosFijos = await db.activoFijo.findMany({ where: { empresaId, estado: { not: 'DADO_DE_BAJA' } } })
-    const valorLibroActivosFijos = activosFijos.reduce((s, a) => s + (a.costoAdquisicion - a.depreciacionAcumulada), 0)
+    const valorLibroActivosFijos = sumarPor(activosFijos, (a) => resta(a.costoAdquisicion, a.depreciacionAcumulada))
 
     const nominaMes = await db.nomina.findUnique({
       where: { empresaId_mes_ano: { empresaId, mes: ahora.getMonth() + 1, ano: ahora.getFullYear() } },
@@ -49,15 +63,24 @@ export async function GET() {
       where: { empresaId_mes_ano: { empresaId, mes: ahora.getMonth() + 1, ano: ahora.getFullYear() } },
     })
 
-    const productos = await db.producto.findMany({ where: { empresaId, activo: true } })
-    const valorizacionInventario = productos.reduce((s, p) => s + p.cantidadActual * p.costoPromedioActual, 0)
+    // El inventario ahora se lleva por (variante, almacén) y no por producto,
+    // así que la valorización sale de las existencias. Se busca la
+    // organización asociada a esta empresa (relación 1:1).
+    const organizacion = await db.organizacion.findUnique({ where: { empresaId }, select: { id: true } })
+    const existencias = organizacion
+      ? await db.existencia.findMany({ where: { organizacionId: organizacion.id } })
+      : []
+    const valorizacionInventario = sumarPor(existencias, (e) => mult(e.cantidad, e.costoPromedio))
+    const cantidadProductos = organizacion
+      ? await db.producto.count({ where: { organizacionId: organizacion.id, activo: true, deletedAt: null } })
+      : 0
 
     const [facturasCxC, facturasCxP] = await Promise.all([
       db.factura.findMany({ where: { empresaId, tipo: 'VENTA', estado: 'CONTABILIZADA', estadoPago: { not: 'PAGADA' } } }),
       db.factura.findMany({ where: { empresaId, tipo: 'COMPRA', estado: 'CONTABILIZADA', estadoPago: { not: 'PAGADA' } } }),
     ])
-    const totalCxC = facturasCxC.reduce((s, f) => s + (montoDeuda(f) - f.montoPagado), 0)
-    const totalCxP = facturasCxP.reduce((s, f) => s + (montoDeuda(f) - f.montoPagado), 0)
+    const totalCxC = sumarPor(facturasCxC, (f) => resta(montoDeuda(f), f.montoPagado))
+    const totalCxP = sumarPor(facturasCxP, (f) => resta(montoDeuda(f), f.montoPagado))
 
     // Tasa de cambio más reciente
     const tasaBCV = await db.tasaCambio.findFirst({
@@ -84,14 +107,14 @@ export async function GET() {
       include: { _count: { select: { lineas: true } } },
     })
 
-    return NextResponse.json({
+    return ok({
       mes: {
         nombre: ahora.toLocaleDateString('es-VE', { month: 'long', year: 'numeric' }),
         totalCompras,
         totalVentas,
         totalIVACredito,
         totalIVADebito,
-        ivaNetoPagar: totalIVADebito - totalIVACredito,
+        ivaNetoPagar: resta(totalIVADebito, totalIVACredito),
         totalRetencionesIVA,
         totalRetencionesISLR,
         totalIGTF,
@@ -104,11 +127,11 @@ export async function GET() {
       activosFijos: { cantidad: activosFijos.length, valorLibro: valorLibroActivosFijos },
       nominaMes: nominaMes ? { totalNeto: nominaMes.totalNeto, estado: nominaMes.estado } : null,
       ajusteInflacionMes: ajusteInflacionMes ? { resultadoExposicionInflacion: ajusteInflacionMes.resultadoExposicionInflacion } : null,
-      inventario: { cantidadProductos: productos.length, valorizacion: valorizacionInventario },
+      inventario: { cantidadProductos, valorizacion: valorizacionInventario },
       cxc: { cantidad: facturasCxC.length, total: totalCxC },
       cxp: { cantidad: facturasCxP.length, total: totalCxP },
     })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 401 })
+  } catch (error) {
+    return manejarError(error)
   }
 }

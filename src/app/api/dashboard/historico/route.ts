@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireEmpresa } from '@/lib/auth'
 import { db } from '@/lib/db'
+import { aNumero } from '@/lib/nucleo/dinero'
 
 const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
@@ -26,8 +27,8 @@ export async function GET() {
 
     const historico = meses.map(({ mes, ano, numeroMes }) => {
       const delMes = facturas.filter((f) => f.fechaEmision.getFullYear() === ano && f.fechaEmision.getMonth() === numeroMes)
-      const compras = delMes.filter((f) => f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR').reduce((s, f) => s + f.totalMonedaFuncional, 0)
-      const ventas = delMes.filter((f) => f.tipo === 'VENTA').reduce((s, f) => s + f.totalMonedaFuncional, 0)
+      const compras = delMes.filter((f) => f.tipo === 'COMPRA' || f.tipo === 'GASTO_MENOR').reduce((s, f) => s + aNumero(f.totalMonedaFuncional), 0)
+      const ventas = delMes.filter((f) => f.tipo === 'VENTA').reduce((s, f) => s + aNumero(f.totalMonedaFuncional), 0)
       return { mes: `${mes} ${String(ano).slice(2)}`, compras: Math.round(compras * 100) / 100, ventas: Math.round(ventas * 100) / 100 }
     })
 
