@@ -1,8 +1,9 @@
 # AdminHub — Arquitectura
 
-Sistema de administración de negocios multi-rubro (restaurante, ropa, quiosco
-y cualquier negocio con inventario, ventas, compras y gastos), construido
-sobre el motor contable-fiscal venezolano de ContaVE.
+Sistema de administración de negocios multi-rubro: restaurante, tienda de
+ropa, quiosco o cualquier negocio con inventario, ventas, compras y gastos.
+
+Proyecto nuevo. No comparte código ni modelo de datos con nada anterior.
 
 ---
 
@@ -27,53 +28,42 @@ decisiones de este documento que a primera vista parecen exageradas.
 
 ---
 
-## 2. Punto de partida: qué se reutiliza y qué se construyó
+## 2. Alcance: qué es y qué no es
 
-El repositorio ya contenía **ContaVE**: un motor contable y fiscal venezolano
-sólido pero sin interfaz — 44 grupos de rutas API, 22 librerías de cálculo y
-una sola página.
+**Es** un sistema para operar un negocio: saber qué hay en el almacén, cuánto
+costó, a cuánto se vende, cuánto entró hoy en la caja y si cuadra.
 
-**Se reutiliza** (no se reescribió nada de esto):
+**No es** un sistema contable. No lleva partida doble, ni plan de cuentas, ni
+asientos, ni estados financieros. Esa decisión es deliberada: mezclar la
+operación diaria con la contabilidad formal produce un sistema que el cajero
+no entiende y el contador no usa. Los datos que este sistema guarda —cada
+venta con su impuesto desglosado, cada compra con su proveedor y su RIF— son
+exactamente los que un contador necesita para llevar los libros por fuera, y
+la Fase 7 los expone como libro de compras y libro de ventas exportables.
 
-| Módulo | Qué resuelve |
-|---|---|
-| `asientos-engine` | Partida doble, asientos automáticos por tipo de documento |
-| `declaracion-iva`, `islr`, `declaracion-igtf`, `declaracion-islr-anual` | Motor fiscal: IVA, retenciones, IGTF, ISLR |
-| `libros-seniat` | Libro de compras y de ventas, con exportación TXT |
-| `plan-cuentas-ven-nif`, `ven-nif` | Plan de cuentas y criterios VEN-NIF |
-| `nomina`, `nomina-lottt` | Nómina, prestaciones, vacaciones y liquidaciones LOTTT |
-| `ajuste-inflacion` | Reexpresión por nivel general de precios |
-| `estados-financieros`, `ejercicios` | Estados financieros y cierre de ejercicio |
-| `activos-fijos` | Depreciación |
-| `conciliacion-banco` | Conciliación bancaria |
-| `auditoria`, `notificaciones`, `bcv-scraper` | Bitácora, avisos, tasa del BCV |
+### Un núcleo, tres verticales
 
-**Se construyó nuevo**: todo el dominio operativo — catálogo con variantes,
-inventario por almacén con kardex inmutable, compras, ventas y POS, caja y
-arqueo, gastos, y los tres módulos verticales.
+No hay tres sistemas: hay un motor con comportamientos configurables. Una
+comanda de restaurante termina en una `Venta` normal, una receta descuenta del
+mismo kardex, y la matriz talla × color de una tienda de ropa es el mismo
+sistema de variantes que un quiosco usa para vender presentaciones distintas
+del mismo refresco.
 
-### `Organizacion` y `Empresa`: por qué son dos tablas
+### Una sola raíz de tenencia
 
-- **`Organizacion`** es el negocio: cómo opera (rubro, monedas, sucursales,
-  cajas, inventario, redondeo).
-- **`Empresa`** es su identidad fiscal: RIF, alícuota, si es agente de
-  retención, calendario del SENIAT.
+`Organizacion` es el negocio y su identidad fiscal a la vez: rubro, monedas,
+criterio de redondeo, RIF y datos de facturación viven en el mismo registro.
+Toda tabla del sistema cuelga de ella, directamente o a través de su documento
+padre.
 
-Son 1:1 y obligatorias juntas. Se mantienen separadas porque el motor fiscal
-ya está escrito y probado contra `empresaId`: al conservar `Empresa` como
-perfil fiscal, ese motor sigue funcionando sin tocarlo, y el **motor fiscal
-queda aislado del operativo** — que es exactamente lo que pide el requisito
-de "capa fiscal parametrizable, no incrustada en la lógica de ventas".
-
-La raíz de tenencia es `Organizacion`: toda tabla operativa lleva
-`organizacionId`.
-
----
+Las alícuotas concretas no viven ahí sino en la tabla `impuestos`, para que
+cambiar el IVA sea editar una fila y los documentos ya emitidos conserven la
+tasa que se les aplicó.
 
 ## 3. La decisión más importante: `Decimal`, no `Float`
 
-El esquema heredado usaba `Float` en los 94 campos de dinero y cantidad. Se
-migraron todos a `Decimal`. **Esto no es una preferencia de estilo.**
+Ningún campo de dinero, cantidad, costo, tasa o porcentaje es `Float`. Todos
+son `Decimal`. **Esto no es una preferencia de estilo.**
 
 `number` en JavaScript es un flotante binario de doble precisión y no puede
 representar `0.10` de forma exacta:
@@ -94,8 +84,9 @@ Las consecuencias en un sistema administrativo son concretas y caras:
 - **El arqueo reporta diferencias que no existen.** Un céntimo de error por
   línea, en mil tickets al mes, es un cajero acusado de un faltante que es en
   realidad un defecto del software.
-- **El libro de ventas no cuadra con el SENIAT**, porque la suma de los IVA de
-  las líneas no da el IVA del total.
+- **El libro de ventas no cuadra**, porque la suma de los IVA de las líneas no
+  da el IVA del total del documento, y el desglose que se declara al fisco sale
+  de esa suma.
 
 ### La convención de precisión
 
@@ -117,7 +108,7 @@ se arrastra.
 
 Los cálculos intermedios **no se redondean**. Se acumulan con toda la
 precisión disponible y se redondea **una sola vez**, al final, cuando el
-número se convierte en un importe cobrable o en un asiento. Toda esa
+número se convierte en un importe cobrable. Toda esa
 aritmética vive en `src/lib/nucleo/dinero.ts`, y es el único módulo autorizado
 a redondear dinero.
 
@@ -125,26 +116,16 @@ Cuando el total redondeado no coincide con la suma de las líneas redondeadas,
 la diferencia se guarda explícita en `Venta.ajusteRedondeo`, para que la suma
 de lo que el cliente ve en el ticket dé exactamente el total que pagó.
 
-### Qué se migró y qué queda pendiente
+### La frontera de presentación
 
-- ✅ **Almacenamiento**: 100 % `Decimal`. Ninguna columna de dinero, cantidad,
-  costo, tasa o porcentaje es `Float`.
-- ✅ **Rutas de cálculo crítico en aritmética exacta**: costeo promedio
-  ponderado, kardex, partida doble (`asientos-engine`), cuentas por cobrar y
-  pagar, impuestos sobre documentos, conversión multimoneda, prorrateo.
-- ⚠️ **Pendiente**: los motores de **reporte** (`estados-financieros`,
-  `ejercicios`, `conciliacion-banco`, `activos-fijos`, `ajuste-inflacion`,
-  `nomina`) leen valores exactos de la base y calculan el reporte
-  internamente en `number`. La frontera está marcada explícitamente con
-  `aNumero()` en cada lectura.
+`number` solo aparece donde el número deja de ser dinero y pasa a ser algo que
+se dibuja: una celda de Excel, un punto de una gráfica, un PDF. Esa conversión
+se hace con `aNumero()`, que se llama así justamente para que en una revisión
+de código salte a la vista dónde termina la aritmética exacta.
 
-  Se dejó así **deliberadamente**: convertir la aritmética interna de 4.900
-  líneas de cálculo fiscal con 69 pruebas de cobertura, en el mismo paso que
-  el resto del sistema, es la forma más fácil de alterar una fórmula de
-  impuestos sin que nadie lo note. El almacenamiento ya es exacto, así que la
-  precisión no se pierde; lo que queda es acabar de mover el cálculo
-  intermedio de esos reportes, motor por motor, con pruebas de regresión que
-  fijen los valores actuales antes de tocar nada.
+En las respuestas JSON los importes viajan como **string**, no como number: si
+viajaran como number, `JSON.parse` en el navegador los devolvería a flotante
+binario y se perdería la exactitud que el servidor cuidó en todo el cálculo.
 
 ---
 
@@ -243,7 +224,6 @@ Hay 45 restricciones. Las que más importan:
 | La diferencia de arqueo es contado − esperado | `CHECK (diferencia = efectivoContado - efectivoEsperado)` — impide "cuadrar" escribiendo cero |
 | Un pago abona a exactamente un documento | `CHECK` de suma de los tres `IS NOT NULL` = 1 |
 | Todo documento en divisa guarda su tasa | `CHECK (moneda = 'VES' OR tasaCambio > 0)` |
-| Una línea de asiento es debe **o** haber | `CHECK ((debit>0 AND credit=0) OR (credit>0 AND debit=0))` |
 | Una venta anulada dice quién y por qué | `CHECK` sobre `motivoAnulacion` y `anuladaPorId` |
 | Una sola sesión de caja abierta por caja | Índice único parcial `WHERE estado='ABIERTA'` |
 | **Un gasto no puede ser compra de inventario** | Disparador `gasto_categoria_debe_ser_gasto` |
@@ -390,7 +370,7 @@ prisma/
     60-caja.prisma               Cajas, turnos, arqueos, cuentas bancarias
     70-gastos.prisma             Categorías de gasto, gastos, recurrentes
     80-verticales.prisma         Mesas, comandas, recetas, modificadores, temporadas
-    90-contabilidad.prisma       Motor contable y fiscal heredado (migrado a Decimal)
+    90-personal.prisma           Empleados, comisiones, adelantos y avisos
   migrations/                    Migraciones versionadas (ahora sí en control de versiones)
 
 src/lib/
@@ -404,8 +384,9 @@ src/lib/
     catalogo.ts                  Categorías, productos, variantes, precios, conversión
     ventas.ts                    Venta atómica, cobro mixto, IGTF, anulación, margen
     caja.ts                      Turnos, efectivo esperado derivado, arqueo, flujo de caja
-  contabilidad/                  Motor fiscal heredado (22 módulos)
-  auth.ts, auditoria.ts, db.ts
+  auth.ts                        Sesión con JWT en cookie HTTP-only
+  auditoria.ts                   Bitácora de operaciones sensibles
+  db.ts                          Cliente Prisma
 
 src/app/api/
   pos/buscar/                    Escaneo por código de barras y búsqueda del mostrador
@@ -433,7 +414,7 @@ tests/                           14 archivos, 171 pruebas
 | **4 — Dinero**: gastos, CxC/CxP, bancos, flujo de caja | Esquema y vistas completos; servicios pendientes |
 | **5 — Inteligencia**: reportes, dashboard, rentabilidad, exportaciones | Dashboard y exportaciones heredadas funcionando |
 | **6 — Verticales**: restaurante, ropa, quiosco | Esquema completo; servicios pendientes |
-| **7 — Fiscal y multimoneda avanzada** | Heredado y funcionando (IVA, ISLR, IGTF, libros SENIAT, tasas históricas) |
+| **7 — Fiscal**: libro de compras y ventas, retenciones | Multimoneda con tasas históricas ✅. Los libros se derivarán de `ventas` y `compras`; pendientes |
 
 ### Criterios de aceptación
 
@@ -449,38 +430,31 @@ tests/                           14 archivos, 171 pruebas
 
 ---
 
-## 13. Cosas que se corrigieron de paso
+## 13. Un defecto que encontró la prueba de humo
 
-Tres defectos del repositorio que contradecían los requisitos:
+Los permisos se validaban solo en la capa de rutas, y los motores confiaban en
+eso. Un cajero llamando `anularVenta()` directamente —desde un script, una
+tarea programada o una ruta nueva— anulaba la venta sin que nada lo detuviera.
 
-1. **`prisma/migrations/` estaba en `.gitignore`.** Sin migraciones
-   versionadas no hay forma de reproducir un entorno ni de saber qué se aplicó
-   en producción. Corregido.
-2. **`registrarMovimiento` no usaba transacción** (ver §4).
-3. **`catch (e: any)` en las rutas**, que además de usar `any` devolvía 400
-   para todo y escondía si el problema era de permisos, de datos o del
-   servidor. Reemplazado por `manejarError()` en las rutas migradas; quedan
-   rutas heredadas por migrar.
-4. **Los permisos se validaban solo en la capa de rutas.** Lo encontró la
-   prueba de humo: un cajero llamando `anularVenta()` directamente anulaba la
-   venta, porque el motor confiaba en que la ruta hubiera comprobado el
-   permiso. "Validar en el servidor" no puede significar "validar en las
-   rutas": un script de mantenimiento, una tarea programada o una ruta nueva
-   entran por detrás. Ahora cada motor comprueba sus propios permisos con
-   `exigirEnContexto()`, y hay pruebas de regresión que llaman a los motores
-   directamente con roles insuficientes.
+"Validar en el servidor" no puede significar "validar en las rutas". Ahora cada
+motor comprueba sus propios permisos con `exigirEnContexto()`, y hay pruebas de
+regresión que llaman a los motores con roles insuficientes para que el agujero
+no vuelva a abrirse.
+
+Lo encontró `scripts/humo-pos.ts`, no las pruebas unitarias: recorrer el flujo
+real de punta a punta destapa cosas que probar cada pieza por separado no.
 
 ---
 
 ## 14. Deuda técnica conocida
 
-- `noImplicitAny: false` en `tsconfig.json`. El requisito pide TypeScript
-  estricto sin `any`; activarlo es el siguiente paso, y hay que hacerlo con el
-  build en verde para ver cuántos sitios aparecen.
-- Los motores de reporte listados en §3 todavía calculan en `number`.
-- Faltan las rutas API y la interfaz de las fases 1, 3, 4 y 6.
+- `noImplicitAny: false` en `tsconfig.json`. El objetivo es TypeScript estricto
+  sin `any`; activarlo es un paso pendiente que conviene dar con el build en
+  verde para medir cuántos sitios aparecen.
+- **No hay interfaz web.** Todo el núcleo se opera por la API.
+- Compras, gastos y los tres verticales tienen el esquema y las restricciones
+  listas, pero no los servicios.
 - El POS como PWA con cola de sincronización offline no está empezado.
 - Sin RLS: los permisos se hacen cumplir en la capa de servidor sobre Prisma
-  (decisión tomada explícitamente). Si en el futuro se quiere la garantía del
-  motor, hay que migrar las lecturas sensibles a un rol de conexión no
-  privilegiado.
+  (decisión explícita). Si en el futuro se quiere la garantía del motor, hay
+  que migrar las lecturas sensibles a un rol de conexión no privilegiado.

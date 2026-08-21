@@ -202,28 +202,20 @@ export async function crearOrganizacion(usuarioId: string, datos: CrearOrganizac
   return db.$transaction(async (tx) => {
     const rifNormalizado = datos.rif.replace(/-/g, '')
 
-    const existente = await tx.empresa.findUnique({ where: { rif: rifNormalizado } })
+    const existente = await tx.organizacion.findUnique({ where: { rif: rifNormalizado } })
     if (existente) {
       throw new ErrorNegocio(`Ya existe un negocio registrado con el RIF ${datos.rif}`, 409)
     }
-
-    const empresa = await tx.empresa.create({
-      data: {
-        nombre: datos.nombre,
-        rif: rifNormalizado,
-        direccion: datos.direccion ?? null,
-        telefono: datos.telefono ?? null,
-        email: datos.email ?? null,
-        alicuotaIVA: datos.alicuotaIVA,
-        monedaFuncional: datos.monedaFuncional,
-      },
-    })
 
     const organizacion = await tx.organizacion.create({
       data: {
         nombre: datos.nombre,
         rubro: datos.rubro,
-        empresaId: empresa.id,
+        rif: rifNormalizado,
+        razonSocial: datos.nombre,
+        direccion: datos.direccion ?? null,
+        telefono: datos.telefono ?? null,
+        email: datos.email ?? null,
         monedaFuncional: datos.monedaFuncional,
         monedaReferencia: datos.monedaReferencia,
         decimalesRedondeo: datos.decimalesRedondeo,
@@ -283,13 +275,7 @@ export async function crearOrganizacion(usuarioId: string, datos: CrearOrganizac
       },
     })
 
-    // Se mantiene también la membresía contable heredada, para que el módulo
-    // fiscal (que trabaja con UserEmpresa) reconozca al usuario.
-    await tx.userEmpresa.create({
-      data: { userId: usuarioId, empresaId: empresa.id, rol: 'ADMIN' },
-    })
-
-    return { organizacion, empresa, sucursal }
+    return { organizacion, sucursal }
   })
 }
 
@@ -297,7 +283,6 @@ export async function obtenerOrganizacion(ctx: ContextoOperacion) {
   const organizacion = await db.organizacion.findFirst({
     where: { id: ctx.organizacionId, deletedAt: null },
     include: {
-      empresa: true,
       sucursales: { where: { deletedAt: null }, orderBy: { codigo: 'asc' } },
       _count: { select: { productos: true, membresias: true } },
     },
@@ -311,23 +296,13 @@ export async function editarOrganizacion(ctx: ContextoOperacion, datos: EditarOr
   if (!organizacion) throw new ErrorNoEncontrado('El negocio no existe')
 
   return db.$transaction(async (tx) => {
-    if (datos.nombre || datos.direccion || datos.telefono || datos.email || datos.alicuotaIVA) {
-      await tx.empresa.update({
-        where: { id: organizacion.empresaId },
-        data: {
-          ...(datos.nombre ? { nombre: datos.nombre } : {}),
-          ...(datos.direccion !== undefined ? { direccion: datos.direccion } : {}),
-          ...(datos.telefono !== undefined ? { telefono: datos.telefono } : {}),
-          ...(datos.email !== undefined ? { email: datos.email } : {}),
-          ...(datos.alicuotaIVA ? { alicuotaIVA: datos.alicuotaIVA } : {}),
-        },
-      })
-    }
-
     return tx.organizacion.update({
       where: { id: organizacion.id },
       data: {
         ...(datos.nombre ? { nombre: datos.nombre } : {}),
+        ...(datos.direccion !== undefined ? { direccion: datos.direccion } : {}),
+        ...(datos.telefono !== undefined ? { telefono: datos.telefono } : {}),
+        ...(datos.email !== undefined ? { email: datos.email } : {}),
         ...(datos.rubro ? { rubro: datos.rubro } : {}),
         ...(datos.monedaFuncional ? { monedaFuncional: datos.monedaFuncional } : {}),
         ...(datos.monedaReferencia ? { monedaReferencia: datos.monedaReferencia } : {}),

@@ -23,7 +23,6 @@ function contextoDe(rol: Rol, sucursalesPermitidas: string[] = []): ContextoOper
     email: 'prueba@adminhub.test',
     nombre: 'Prueba',
     organizacionId: 'org1',
-    empresaId: 'emp1',
     rol,
     permisos,
     sucursalesPermitidas,

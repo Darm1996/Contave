@@ -18,10 +18,7 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  empresas    UserEmpresa[]
   membresias  Membresia[]
-  facturas    Factura[]
-  asientos    Asiento[]
   sesiones    Sesion[]
   pagos       Pago[]
   movimientos MovimientoInventario[]
@@ -49,20 +46,13 @@ model Sesion {
 //  TENENCIA
 // ───────────────────────────────────────────────────────────────────────
 
-// Raíz de tenencia. Un negocio del cliente = una Organizacion.
+// Raíz de tenencia y única identidad del negocio. Un negocio = una
+// Organizacion: aquí viven tanto la forma de operar (rubro, monedas, cajas,
+// inventario, redondeo) como los datos fiscales con los que factura.
 //
-// La relación con Empresa merece explicación porque tiene consecuencias de
-// negocio: Organizacion es el NEGOCIO (cómo opera: rubro, monedas, cajas,
-// inventario) y Empresa es su IDENTIDAD FISCAL (RIF, alícuota, si es agente
-// de retención, calendario del SENIAT). Son 1:1 y obligatorias juntas.
-//
-// Se mantienen separadas en vez de fusionarlas porque el motor fiscal
-// heredado (declaración de IVA, ISLR, libros del SENIAT, ajuste por
-// inflación, nómina LOTTT) ya está escrito y probado contra empresaId. Al
-// conservar Empresa como perfil fiscal, ese motor sigue funcionando sin
-// tocarlo, y el motor fiscal queda aislado del operativo — que es
-// exactamente lo que pide el requisito de "capa fiscal parametrizable, no
-// incrustada en la lógica de ventas".
+// No hay una tabla "Empresa" aparte: la identidad fiscal es un puñado de
+// campos de este mismo registro. Separarlas obligaría a mantener dos filas
+// sincronizadas para representar una sola cosa.
 model Organizacion {
   id     String @id @default(cuid())
   nombre String
@@ -70,9 +60,19 @@ model Organizacion {
   // defecto aplican (ej. lotes y vencimiento obligatorios en RESTAURANTE).
   rubro  String @default("GENERAL") // GENERAL | RESTAURANTE | ROPA | QUIOSCO
 
-  // Perfil fiscal 1:1. Obligatorio: sin RIF no se puede facturar en Venezuela.
-  empresaId String  @unique
-  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  // ── Identidad fiscal ──────────────────────────────────────────────
+  // Configurable por país; los valores por defecto son los de Venezuela.
+  // Las alícuotas concretas viven en la tabla `impuestos`, no aquí: así
+  // cambiar el IVA es editar una fila y los documentos ya emitidos
+  // conservan la tasa que se les aplicó.
+  rif                     String  @unique
+  razonSocial             String?
+  direccion               String?
+  telefono                String?
+  email                   String?
+  paisFiscal              String  @default("VE")
+  esContribuyenteEspecial Boolean @default(false)
+  esAgenteRetencionIVA    Boolean @default(false)
 
   // Multimoneda: la funcional es la de los libros; la de referencia es la
   // que el negocio usa para pensar en precios (típicamente USD en Venezuela).
@@ -129,6 +129,9 @@ model Organizacion {
   temporadas        Temporada[]
   apartados         Apartado[]
   secuencias        SecuenciaOperativa[]
+  tasasCambio       TasaCambio[]
+  empleados         Empleado[]
+  notificaciones    Notificacion[]
   bitacora          AuditLog[]
 
   createdAt DateTime  @default(now())
@@ -265,8 +268,7 @@ model RolPermiso {
   @@map("roles_permisos")
 }
 
-// Vínculo usuario ↔ organización con su rol. Reemplaza a UserEmpresa para
-// el mundo operativo (UserEmpresa se conserva para el módulo contable).
+// Vínculo usuario ↔ organización con su rol.
 model Membresia {
   id             String  @id @default(cuid())
   organizacionId String
@@ -341,17 +343,19 @@ model SecuenciaOperativa {
 // un reporte del mes pasado da el mismo número hoy que mañana aunque el BCV
 // publique otra tasa. Esta tabla solo sirve para PROPONER la tasa del día.
 model TasaCambio {
-  id        String   @id @default(cuid())
-  empresaId String
-  fecha     DateTime @db.Date
-  monedaRef String   @default("USD")
-  tasa      Decimal  @db.Decimal(18, 8)
-  fuente    String   @default("BCV")
-  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  organizacionId String
+  fecha          DateTime @db.Date
+  monedaRef      String   @default("USD")
+  tasa           Decimal  @db.Decimal(18, 8)
+  fuente         String   @default("MANUAL")
 
-  @@unique([empresaId, fecha, monedaRef])
-  @@index([empresaId, monedaRef, fecha])
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+
+  @@unique([organizacionId, fecha, monedaRef])
+  @@index([organizacionId, monedaRef, fecha])
+  @@map("tasas_cambio")
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -363,8 +367,7 @@ model TasaCambio {
 // legible aunque el usuario cambie de email o se elimine.
 model AuditLog {
   id             String  @id @default(cuid())
-  empresaId      String
-  organizacionId String?
+  organizacionId String
   userId         String?
   userEmail      String
   accion         String
@@ -376,11 +379,9 @@ model AuditLog {
   valorNuevo     String?
   ip             String?
 
-  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  organizacion Organizacion? @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
-  createdAt    DateTime      @default(now())
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
 
-  @@index([empresaId, createdAt])
   @@index([organizacionId, createdAt])
   @@index([entidad, entidadId])
   @@map("bitacora_auditoria")

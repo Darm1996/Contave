@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     const venta = await confirmarVenta(ctx, datos)
 
     await registrarAuditoria({
-      empresaId: ctx.empresaId,
+      organizacionId: ctx.organizacionId,
       userId: ctx.usuarioId,
       userEmail: ctx.email,
       accion: 'VENTA_CONFIRMADA',

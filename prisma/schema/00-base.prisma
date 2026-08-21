@@ -33,9 +33,9 @@
 //
 // MULTI-TENANT
 // ---------------------------------------------------------------------
-// La raíz de tenencia es Organizacion. Toda tabla operativa lleva
-// organizacionId. Las tablas contables heredadas llevan empresaId, y
-// Empresa es el perfil fiscal 1:1 de una Organizacion (ver 10-nucleo).
+// La raíz de tenencia es Organizacion: TODA tabla del sistema lleva
+// organizacionId, directamente o a través de su documento padre. No hay
+// ninguna otra raíz.
 
 generator client {
   provider = "prisma-client-js"

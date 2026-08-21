@@ -523,7 +523,6 @@ describe('POS: el motor valida permisos por sí mismo, no solo la ruta', () => {
       usuarioId: almacenista.usuarioId,
       email: almacenista.email,
       organizacionId: q.organizacionId,
-      empresaId: q.empresaId,
     })
 
     await expect(

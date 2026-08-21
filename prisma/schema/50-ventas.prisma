@@ -3,13 +3,12 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 model Cliente {
-  id        String  @id @default(cuid())
-  empresaId String
-  // Nullable en el mundo operativo: el POS de un quiosco cobra a "cliente
-  // de paso" sin cédula. Se exige identificación solo al emitir factura
-  // fiscal o al otorgar crédito, no para poder vender.
-  organizacionId String?
-  rif       String?
+  id             String @id @default(cuid())
+  organizacionId String
+  // Nullable a propósito: el POS de un quiosco cobra a "cliente de paso" sin
+  // cédula. Se exige identificación solo al emitir factura fiscal o al
+  // otorgar crédito, no para poder vender.
+  rif            String?
   nombre    String
   direccion String?
   telefono  String?
@@ -21,8 +20,7 @@ model Cliente {
   diasCredito   Int     @default(0)
   activo        Boolean @default(true)
 
-  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  organizacion Organizacion? @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
 
   ventas    Venta[]
   apartados Apartado[]
@@ -33,7 +31,7 @@ model Cliente {
   createdBy String?
   deletedAt DateTime?
 
-  @@unique([empresaId, rif])
+  @@unique([organizacionId, rif])
   @@index([organizacionId, activo, nombre])
   @@map("clientes")
 }
@@ -135,8 +133,6 @@ model Venta {
   montoPagado Decimal @default(0) @db.Decimal(18, 4)
   estadoPago  String  @default("PENDIENTE") // PENDIENTE | PARCIAL | PAGADA
 
-  // Documento fiscal emitido (alimenta el libro de ventas).
-  facturaId String? @unique
   // Venta que esta anula o devuelve.
   ventaOrigenId String?
   motivoAnulacion String?
@@ -155,7 +151,6 @@ model Venta {
   usuario      User         @relation(fields: [usuarioId], references: [id])
   sesionCaja   SesionCaja?  @relation(fields: [sesionCajaId], references: [id])
   listaPrecio  ListaPrecio? @relation(fields: [listaPrecioId], references: [id])
-  factura      Factura?     @relation(fields: [facturaId], references: [id])
   mesa         Mesa?        @relation(fields: [mesaId], references: [id])
   comanda      Comanda?     @relation(fields: [comandaId], references: [id])
   ventaOrigen  Venta?       @relation("DevolucionVenta", fields: [ventaOrigenId], references: [id])
@@ -229,15 +224,12 @@ model VentaDetalle {
 // cuentas por cobrar y cuentas por pagar cuadren entre sí; con tablas
 // separadas por caso siempre queda una que nadie actualiza.
 model Pago {
-  id        String @id @default(cuid())
-  empresaId String
-  organizacionId String?
-  // Exactamente uno de estos tres debe estar presente. Se valida en la capa
-  // de servicio (Postgres no expresa "exactamente uno de N" sin un CHECK,
-  // y el CHECK se añade en la migración).
-  facturaId String?
-  ventaId   String?
-  compraId  String?
+  id             String @id @default(cuid())
+  organizacionId String
+  // Exactamente uno de los dos debe estar presente: un pago cobra una venta
+  // o paga una compra. Lo garantiza un CHECK en la migración.
+  ventaId        String?
+  compraId       String?
 
   userId String
   monto  Decimal @db.Decimal(18, 4)
@@ -248,10 +240,7 @@ model Pago {
   tasaCambio           Decimal? @db.Decimal(18, 8)
   montoMonedaFuncional Decimal  @default(0) @db.Decimal(18, 4)
 
-  fecha DateTime @default(now())
-  // Etiqueta heredada del método (el motor contable la usa). La autoridad
-  // en el mundo operativo es metodoPagoId.
-  metodoPago   String  @default("TRANSFERENCIA")
+  fecha        DateTime @default(now())
   metodoPagoId String?
   referencia   String?
 
@@ -259,15 +248,11 @@ model Pago {
   montoIGTF Decimal @default(0) @db.Decimal(18, 4)
 
   sesionCajaId String?
-  cuentaId     String? // cuenta contable de banco/caja, si se generó asiento
-  asientoId    String? @unique
   // Reversa de un pago, para anulaciones. No se borran pagos.
   pagoReversadoId String? @unique
 
-  empresa      Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  organizacion Organizacion? @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
-  factura      Factura?      @relation(fields: [facturaId], references: [id], onDelete: Cascade)
-  venta        Venta?        @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  venta        Venta?       @relation(fields: [ventaId], references: [id], onDelete: Cascade)
   compra       Compra?       @relation(fields: [compraId], references: [id], onDelete: Cascade)
   usuario      User          @relation(fields: [userId], references: [id])
   metodo       MetodoPago?   @relation(fields: [metodoPagoId], references: [id])
@@ -278,10 +263,9 @@ model Pago {
 
   createdAt DateTime @default(now())
 
-  @@index([facturaId])
   @@index([ventaId])
   @@index([compraId])
-  @@index([empresaId, fecha])
+  @@index([organizacionId, fecha])
   @@index([sesionCajaId])
   @@map("pagos")
 }

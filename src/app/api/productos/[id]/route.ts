@@ -24,7 +24,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const producto = await desactivarProducto(ctx, id)
 
     await registrarAuditoria({
-      empresaId: ctx.empresaId,
+      organizacionId: ctx.organizacionId,
       userId: ctx.usuarioId,
       userEmail: ctx.email,
       accion: 'PRODUCTO_DESACTIVADO',

@@ -24,7 +24,7 @@ const CLAVE = 'quiosco123'
 
 function contextoDe(
   rol: Rol,
-  datos: { usuarioId: string; email: string; organizacionId: string; empresaId: string },
+  datos: { usuarioId: string; email: string; organizacionId: string },
 ): ContextoOperacion {
   const permisos = permisosDeRol(rol)
   return {
@@ -32,7 +32,6 @@ function contextoDe(
     email: datos.email,
     nombre: 'Semilla',
     organizacionId: datos.organizacionId,
-    empresaId: datos.empresaId,
     rol,
     permisos,
     sucursalesPermitidas: [],
@@ -61,7 +60,7 @@ const CATALOGO = [
 async function main() {
   console.log('Sembrando quiosco de demostración...\n')
 
-  const existente = await db.empresa.findUnique({ where: { rif: RIF.replace(/-/g, '') } })
+  const existente = await db.organizacion.findUnique({ where: { rif: RIF.replace(/-/g, '') } })
   if (existente) {
     console.log(`Ya existe un negocio con el RIF ${RIF}. Nada que hacer.`)
     console.log('Para volver a sembrar, elimina esa organización primero.')
@@ -88,7 +87,7 @@ async function main() {
     }),
   ])
 
-  const { organizacion, empresa, sucursal } = await crearOrganizacion(duenio.id, {
+  const { organizacion, sucursal } = await crearOrganizacion(duenio.id, {
     nombre: 'Quiosco La Esquina',
     rubro: 'QUIOSCO',
     rif: RIF,
@@ -102,14 +101,13 @@ async function main() {
     modoRedondeo: 'HALF_UP',
     incrementoRedondeo: '0',
   })
-  console.log(`✓ Organización "${organizacion.nombre}" (RIF ${empresa.rif})`)
+  console.log(`✓ Organización "${organizacion.nombre}" (RIF ${organizacion.rif})`)
   console.log(`✓ Sucursal "${sucursal.nombre}", con su almacén y caja`)
 
   const ctx = contextoDe('PROPIETARIO', {
     usuarioId: duenio.id,
     email: duenio.email,
     organizacionId: organizacion.id,
-    empresaId: empresa.id,
   })
 
   // Equipo
@@ -183,7 +181,6 @@ async function main() {
       descripcion: null,
       codigoProveedor: null,
       temporadaId: null,
-      cuentaInventarioId: null,
       imagenUrl: null,
     })
 
@@ -217,7 +214,7 @@ async function main() {
   // Tasa del BCV, necesaria para cobrar en divisas
   await db.tasaCambio.create({
     data: {
-      empresaId: empresa.id,
+      organizacionId: organizacion.id,
       fecha: new Date(new Date().toISOString().slice(0, 10)),
       monedaRef: 'USD',
       tasa: '36.50000000',
@@ -229,7 +226,6 @@ async function main() {
   // Un cliente con crédito, para probar el fiado
   await db.cliente.create({
     data: {
-      empresaId: empresa.id,
       organizacionId: organizacion.id,
       nombre: 'Señora Carmen (vecina)',
       telefono: '0414-9876543',

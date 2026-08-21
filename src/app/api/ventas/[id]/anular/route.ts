@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const venta = await anularVenta(ctx, id, motivo)
 
     await registrarAuditoria({
-      empresaId: ctx.empresaId,
+      organizacionId: ctx.organizacionId,
       userId: ctx.usuarioId,
       userEmail: ctx.email,
       accion: 'VENTA_ANULADA',

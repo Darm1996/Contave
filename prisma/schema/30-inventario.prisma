@@ -112,8 +112,6 @@ model MovimientoInventario {
   trasladoId String?
   tomaId     String?
   comandaId  String?
-  // Enlace al asiento contable del costo de venta, si se generó.
-  asientoId  String?
 
   motivo   String?
   usuarioId String?

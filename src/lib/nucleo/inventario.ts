@@ -101,7 +101,6 @@ export interface EntradaMovimiento {
   trasladoId?: string | null
   tomaId?: string | null
   comandaId?: string | null
-  asientoId?: string | null
   /**
    * Permite que la existencia quede negativa. Por defecto NO se permite: un
    * stock negativo es casi siempre un error de captura, y dejarlo pasar
@@ -237,7 +236,6 @@ export async function registrarMovimientoEnTransaccion(
       trasladoId: entrada.trasladoId ?? null,
       tomaId: entrada.tomaId ?? null,
       comandaId: entrada.comandaId ?? null,
-      asientoId: entrada.asientoId ?? null,
     },
   })
 

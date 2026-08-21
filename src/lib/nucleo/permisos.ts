@@ -95,11 +95,13 @@ export const PERMISOS = {
   'reporte.rentabilidad': 'Ver rentabilidad y márgenes',
   'reporte.exportar': 'Exportar reportes a Excel y PDF',
 
-  // Contabilidad y fiscal
-  'contabilidad.ver': 'Ver asientos y libros contables',
-  'contabilidad.registrar': 'Contabilizar documentos',
-  'fiscal.declarar': 'Generar declaraciones y libros fiscales',
-  'nomina.gestionar': 'Procesar nómina',
+  // Fiscal: libros de compras y ventas derivados de los documentos del
+  // sistema. No hay contabilidad de partida doble en este producto.
+  'fiscal.libros': 'Ver y exportar los libros de compras y ventas',
+
+  // Personal
+  'personal.ver': 'Ver empleados',
+  'personal.gestionar': 'Crear empleados, comisiones y adelantos',
 
   // Auditoría
   'auditoria.ver': 'Ver la bitácora de auditoría',
@@ -143,7 +145,8 @@ export const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'banco.ver', 'banco.gestionar',
     'cxc.ver', 'cxp.ver',
     'reporte.ventas', 'reporte.rentabilidad', 'reporte.exportar',
-    'contabilidad.ver', 'contabilidad.registrar',
+    'fiscal.libros',
+    'personal.ver', 'personal.gestionar',
     'auditoria.ver',
   ],
 
@@ -162,6 +165,7 @@ export const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'gasto.ver', 'gasto.crear',
     'cxc.ver',
     'reporte.ventas', 'reporte.rentabilidad', 'reporte.exportar',
+    'personal.ver',
   ],
 
   // Vende y cobra. Sin 'producto.ver_costo', sin 'reporte.rentabilidad', sin
@@ -198,8 +202,8 @@ export const PERMISOS_POR_ROL: Record<Rol, readonly Permiso[]> = {
     'caja.ver_todas',
     'gasto.ver', 'banco.ver', 'cxc.ver', 'cxp.ver',
     'reporte.ventas', 'reporte.rentabilidad', 'reporte.exportar',
-    'contabilidad.ver', 'contabilidad.registrar',
-    'fiscal.declarar', 'nomina.gestionar',
+    'fiscal.libros',
+    'personal.ver',
     'auditoria.ver',
   ],
 }
@@ -237,7 +241,6 @@ export interface ContextoOperacion {
   email: string
   nombre: string
   organizacionId: string
-  empresaId: string
   rol: Rol
   permisos: readonly Permiso[]
   /** Sucursales a las que está limitado. Vacío = todas. */
@@ -263,7 +266,7 @@ export async function obtenerContexto(organizacionId?: string): Promise<Contexto
     },
     include: {
       rol: true,
-      organizacion: { select: { id: true, empresaId: true, activo: true } },
+      organizacion: { select: { id: true, activo: true } },
       sucursales: { select: { sucursalId: true } },
     },
     orderBy: { createdAt: 'asc' },
@@ -284,7 +287,6 @@ export async function obtenerContexto(organizacionId?: string): Promise<Contexto
     email: usuario.email,
     nombre: usuario.name,
     organizacionId: membresia.organizacionId,
-    empresaId: membresia.organizacion.empresaId,
     rol,
     permisos,
     sucursalesPermitidas: membresia.sucursales.map((s) => s.sucursalId),

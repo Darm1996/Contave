@@ -474,7 +474,6 @@ export async function confirmarVenta(ctx: ContextoOperacion, entrada: VentaEntra
     for (const cobro of cobros) {
       await tx.pago.create({
         data: {
-          empresaId: ctx.empresaId,
           organizacionId: ctx.organizacionId,
           ventaId: venta.id,
           userId: ctx.usuarioId,
@@ -482,7 +481,6 @@ export async function confirmarVenta(ctx: ContextoOperacion, entrada: VentaEntra
           moneda: cobro.moneda,
           tasaCambio: cobro.tasaCambio,
           montoMonedaFuncional: cobro.montoFuncional,
-          metodoPago: cobro.moneda,
           metodoPagoId: cobro.metodoPagoId,
           montoIGTF: cobro.montoIGTF,
           referencia: cobro.referencia,
@@ -629,7 +627,6 @@ export async function anularVenta(ctx: ContextoOperacion, ventaId: string, motiv
 
       await tx.pago.create({
         data: {
-          empresaId: pago.empresaId,
           organizacionId: pago.organizacionId,
           ventaId: venta.id,
           userId: ctx.usuarioId,
@@ -637,7 +634,6 @@ export async function anularVenta(ctx: ContextoOperacion, ventaId: string, motiv
           moneda: pago.moneda,
           tasaCambio: pago.tasaCambio,
           montoMonedaFuncional: d(pago.montoMonedaFuncional).negated(),
-          metodoPago: pago.metodoPago,
           metodoPagoId: pago.metodoPagoId,
           montoIGTF: d(pago.montoIGTF).negated(),
           referencia: `Reversa de ${pago.referencia ?? pago.id}`,

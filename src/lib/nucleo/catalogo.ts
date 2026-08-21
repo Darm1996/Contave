@@ -217,7 +217,6 @@ export async function crearProducto(ctx: ContextoOperacion, datos: EntradaProduc
         stockMinimo: datos.stockMinimo,
         puntoReorden: datos.puntoReorden,
         temporadaId: datos.temporadaId ?? null,
-        cuentaInventarioId: datos.cuentaInventarioId ?? null,
         imagenUrl: datos.imagenUrl ?? null,
         createdBy: ctx.usuarioId,
       },

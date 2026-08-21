@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Un arqueo con diferencia es información sensible para el dueño: queda en
     // la bitácora con el nombre de quien contó.
     await registrarAuditoria({
-      empresaId: ctx.empresaId,
+      organizacionId: ctx.organizacionId,
       userId: ctx.usuarioId,
       userEmail: ctx.email,
       accion: 'CAJA_ARQUEO',

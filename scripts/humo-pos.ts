@@ -6,7 +6,7 @@ import { abrirTurno, cerrarTurno, resumenTurno } from '../src/lib/nucleo/caja'
 import { existenciaDisponible, verificarIntegridadKardex } from '../src/lib/nucleo/inventario'
 import { buscarPorCodigoBarras } from '../src/lib/nucleo/catalogo'
 
-function ctxDe(rol: Rol, u: { usuarioId: string; email: string; organizacionId: string; empresaId: string }): ContextoOperacion {
+function ctxDe(rol: Rol, u: { usuarioId: string; email: string; organizacionId: string }): ContextoOperacion {
   const permisos = permisosDeRol(rol)
   return { ...u, nombre: 'humo', rol, permisos, sucursalesPermitidas: [], puede: (p) => permisos.includes(p) }
 }
@@ -21,7 +21,7 @@ async function main() {
   const efectivo = await db.metodoPago.findFirstOrThrow({ where: { organizacionId: org.id, codigo: 'EFEC-BS' } })
   const pm = await db.metodoPago.findFirstOrThrow({ where: { organizacionId: org.id, codigo: 'PM' } })
 
-  const base = { organizacionId: org.id, empresaId: org.empresaId }
+  const base = { organizacionId: org.id }
   const cajero = ctxDe('CAJERO', { usuarioId: cajeroU.id, email: cajeroU.email, ...base })
   const sup = ctxDe('SUPERVISOR', { usuarioId: supU.id, email: supU.email, ...base })
 

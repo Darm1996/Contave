@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     })
 
     await registrarAuditoria({
-      empresaId: ctx.empresaId,
+      organizacionId: ctx.organizacionId,
       userId: ctx.usuarioId,
       userEmail: ctx.email,
       accion: `INVENTARIO_${datos.tipo}`,

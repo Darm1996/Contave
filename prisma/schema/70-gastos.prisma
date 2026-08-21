@@ -33,9 +33,6 @@ model CategoriaGasto {
   // Operativo es del giro del negocio; no operativo es financiero o
   // extraordinario. Separa el resultado operativo del resultado neto.
   clasificacion  String  @default("OPERATIVO") // OPERATIVO | NO_OPERATIVO
-  // Cuenta contable donde se imputa, para que el gasto llegue al libro
-  // mayor sin capturarlo dos veces.
-  cuentaId       String?
   activo         Boolean @default(true)
 
   organizacion Organizacion     @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
@@ -91,10 +88,6 @@ model Gasto {
 
   // Si lo generó un gasto recurrente, para no duplicarlo.
   gastoRecurrenteId String?
-  // Enlace al asiento contable y al documento fiscal, si aplican.
-  asientoId String?
-  facturaId String?
-
   notas String?
 
   organizacion   Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)

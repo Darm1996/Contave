@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const movimiento = await registrarMovimientoCaja(ctx, datos)
 
     await registrarAuditoria({
-      empresaId: ctx.empresaId,
+      organizacionId: ctx.organizacionId,
       userId: ctx.usuarioId,
       userEmail: ctx.email,
       accion: `CAJA_${datos.tipo}`,

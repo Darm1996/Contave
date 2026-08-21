@@ -131,8 +131,6 @@ model Compra {
   montoPagado Decimal @default(0) @db.Decimal(18, 4)
   estadoPago  String  @default("PENDIENTE") // PENDIENTE | PARCIAL | PAGADA
 
-  // Documento fiscal generado, si aplica (alimenta el libro de compras).
-  facturaId String? @unique
   // Compra que esta anula/devuelve (devolución a proveedor).
   compraOrigenId String?
 
@@ -145,7 +143,6 @@ model Compra {
   proveedor    Proveedor    @relation(fields: [proveedorId], references: [id])
   ordenCompra  OrdenCompra? @relation(fields: [ordenCompraId], references: [id])
   usuario      User         @relation(fields: [usuarioId], references: [id])
-  factura      Factura?     @relation(fields: [facturaId], references: [id])
   compraOrigen Compra?      @relation("DevolucionCompra", fields: [compraOrigenId], references: [id])
   devoluciones Compra[]     @relation("DevolucionCompra")
 

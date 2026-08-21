@@ -1,0 +1,87 @@
+// ═══════════════════════════════════════════════════════════════════════
+//  PERSONAL Y AVISOS
+// ═══════════════════════════════════════════════════════════════════════
+
+// Empleado del negocio. Deliberadamente ligero: cubre lo que el sistema
+// administrativo necesita —quién vende, cuánto comisiona, qué se le
+// adelantó— y no pretende ser un módulo de nómina. Calcular prestaciones,
+// vacaciones y liquidaciones es un dominio propio, con su propia ley y su
+// propio ritmo de cambio; meterlo aquí acopla el POS a algo que no le
+// incumbe.
+model Empleado {
+  id             String    @id @default(cuid())
+  organizacionId String
+  cedula         String
+  nombre         String
+  cargo          String?
+  telefono       String?
+  fechaIngreso   DateTime  @db.Date
+  fechaEgreso    DateTime? @db.Date
+
+  // Comisión sobre ventas, para el personal que vende.
+  porcentajeComision Decimal @default(0) @db.Decimal(7, 4)
+  activo             Boolean @default(true)
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  membresia    Membresia?
+  adelantos    AdelantoEmpleado[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  deletedAt DateTime?
+
+  @@unique([organizacionId, cedula])
+  @@index([organizacionId, activo])
+  @@map("empleados")
+}
+
+// Adelanto o préstamo a un empleado. Se registra como un movimiento con su
+// saldo pendiente, no como un descuento suelto: sin el saldo, nadie sabe
+// cuánto falta por descontar y el adelanto se cobra de más o de menos.
+model AdelantoEmpleado {
+  id         String   @id @default(cuid())
+  empleadoId String
+  tipo       String   @default("ADELANTO") // ADELANTO | PRESTAMO
+  monto      Decimal  @db.Decimal(18, 4)
+  moneda     String   @default("VES")
+  saldoPendiente Decimal @db.Decimal(18, 4)
+  concepto   String
+  fecha      DateTime @default(now())
+
+  empleado Empleado @relation(fields: [empleadoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empleadoId])
+  @@map("adelantos_empleado")
+}
+
+// ───────────────────────────────────────────────────────────────────────
+//  AVISOS
+// ───────────────────────────────────────────────────────────────────────
+
+// Cola de avisos del negocio: existencia por debajo del punto de reorden,
+// lote por vencer, gasto recurrente que vence, cuenta por cobrar vencida.
+// entidadId evita repetir el mismo aviso una y otra vez por el mismo hecho.
+model Notificacion {
+  id             String    @id @default(cuid())
+  organizacionId String
+  tipo           String // STOCK_MINIMO | LOTE_POR_VENCER | GASTO_RECURRENTE | CXC_VENCIDA | ARQUEO_DESCUADRADO
+  titulo         String
+  cuerpo         String
+  entidadId      String?
+  destinatario   String?
+  leida          Boolean   @default(false)
+  estado         String    @default("PENDIENTE") // PENDIENTE | ENVIADA | ERROR
+  errorMensaje   String?
+  enviadaAt      DateTime?
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime     @default(now())
+
+  @@index([organizacionId, estado])
+  @@index([organizacionId, leida, createdAt])
+  @@map("notificaciones")
+}

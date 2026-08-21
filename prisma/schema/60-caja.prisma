@@ -154,9 +154,6 @@ model CuentaBancaria {
   saldoInicial   Decimal @default(0) @db.Decimal(18, 4)
   // Saldo corriente cacheado. La verdad es la suma de movimientos.
   saldoActual    Decimal @default(0) @db.Decimal(18, 4)
-  // Cuenta contable asociada, para que los movimientos se reflejen en el
-  // libro mayor sin capturarlos dos veces.
-  cuentaId       String?
   activo         Boolean @default(true)
 
   organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)

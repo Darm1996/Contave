@@ -161,9 +161,6 @@ model Producto {
   // Ropa: temporada/colección para marcar mercancía de temporada anterior.
   temporadaId String?
 
-  // Enlace contable opcional: cuenta de inventario donde se activa el costo.
-  cuentaInventarioId String?
-
   imagenUrl String?
   activo    Boolean @default(true)
 

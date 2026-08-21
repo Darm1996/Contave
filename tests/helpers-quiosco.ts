@@ -19,7 +19,7 @@ const prefijo = Math.random().toString(36).slice(2, 8)
 /** Contexto de operación sintético, sin pasar por cookies ni JWT. */
 export function contextoDe(
   rol: Rol,
-  datos: { usuarioId: string; email: string; organizacionId: string; empresaId: string; sucursalesPermitidas?: string[] },
+  datos: { usuarioId: string; email: string; organizacionId: string; sucursalesPermitidas?: string[] },
 ): ContextoOperacion {
   const permisos = permisosDeRol(rol)
   return {
@@ -27,7 +27,6 @@ export function contextoDe(
     email: datos.email,
     nombre: 'Usuario de Prueba',
     organizacionId: datos.organizacionId,
-    empresaId: datos.empresaId,
     rol,
     permisos,
     sucursalesPermitidas: datos.sucursalesPermitidas ?? [],
@@ -37,7 +36,6 @@ export function contextoDe(
 
 export interface QuioscoDePrueba {
   organizacionId: string
-  empresaId: string
   sucursalId: string
   almacenId: string
   cajaId: string
@@ -82,7 +80,7 @@ export async function crearQuioscoDePrueba(): Promise<QuioscoDePrueba> {
     }),
   ])
 
-  const { organizacion, empresa, sucursal } = await crearOrganizacion(duenio.id, {
+  const { organizacion, sucursal } = await crearOrganizacion(duenio.id, {
     nombre: `Quiosco de Prueba ${sufijo}`,
     rubro: 'QUIOSCO',
     rif: `J-${prefijo}${String(contador).padStart(3, '0')}-1`.toUpperCase(),
@@ -98,7 +96,6 @@ export async function crearQuioscoDePrueba(): Promise<QuioscoDePrueba> {
     usuarioId: duenio.id,
     email: duenio.email,
     organizacionId: organizacion.id,
-    empresaId: empresa.id,
   })
 
   // Vincular al cajero y al supervisor con sus roles.
@@ -207,7 +204,6 @@ export async function crearQuioscoDePrueba(): Promise<QuioscoDePrueba> {
       codigoProveedor: null,
       categoriaId: null,
       temporadaId: null,
-      cuentaInventarioId: null,
       imagenUrl: null,
     })
 
@@ -245,12 +241,11 @@ export async function crearQuioscoDePrueba(): Promise<QuioscoDePrueba> {
 
   // Tasa del día, necesaria para cobrar en divisas.
   await db.tasaCambio.create({
-    data: { empresaId: empresa.id, fecha: new Date(), monedaRef: 'USD', tasa: '36.50000000', fuente: 'BCV' },
+    data: { organizacionId: organizacion.id, fecha: new Date(), monedaRef: 'USD', tasa: '36.50000000', fuente: 'BCV' },
   })
 
   return {
     organizacionId: organizacion.id,
-    empresaId: empresa.id,
     sucursalId: sucursal.id,
     almacenId: almacen.id,
     cajaId: caja.id,
@@ -264,13 +259,11 @@ export async function crearQuioscoDePrueba(): Promise<QuioscoDePrueba> {
       usuarioId: cajero.id,
       email: cajero.email,
       organizacionId: organizacion.id,
-      empresaId: empresa.id,
     }),
     supervisor: contextoDe('SUPERVISOR', {
       usuarioId: supervisor.id,
       email: supervisor.email,
       organizacionId: organizacion.id,
-      empresaId: empresa.id,
     }),
   }
 }
@@ -279,11 +272,10 @@ export async function crearQuioscoDePrueba(): Promise<QuioscoDePrueba> {
 export async function limpiarQuioscos() {
   const orgs = await db.organizacion.findMany({
     where: { nombre: { contains: 'Quiosco de Prueba' } },
-    select: { id: true, empresaId: true },
+    select: { id: true },
   })
   if (orgs.length === 0) return
   const orgIds = orgs.map((o) => o.id)
-  const empresaIds = orgs.map((o) => o.empresaId)
 
   await db.arqueoDetalle.deleteMany({ where: { arqueo: { sesionCaja: { organizacionId: { in: orgIds } } } } })
   await db.arqueo.deleteMany({ where: { sesionCaja: { organizacionId: { in: orgIds } } } })
@@ -312,8 +304,6 @@ export async function limpiarQuioscos() {
   await db.unidadMedida.deleteMany({ where: { organizacionId: { in: orgIds }, unidadBaseId: { not: null } } })
   await db.unidadMedida.deleteMany({ where: { organizacionId: { in: orgIds } } })
   await db.organizacion.deleteMany({ where: { id: { in: orgIds } } })
-  await db.tasaCambio.deleteMany({ where: { empresaId: { in: empresaIds } } })
-  await db.userEmpresa.deleteMany({ where: { empresaId: { in: empresaIds } } })
-  await db.empresa.deleteMany({ where: { id: { in: empresaIds } } })
+  await db.tasaCambio.deleteMany({ where: { organizacionId: { in: orgIds } } })
   await db.user.deleteMany({ where: { email: { contains: '@quiosco.test' } } })
 }

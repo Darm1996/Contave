@@ -1,45 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { requireEmpresa } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { exigirPermiso } from '@/lib/nucleo/permisos'
+import { ok, manejarError } from '@/lib/nucleo/respuesta'
+import { esquemaTasaCambio } from '@/lib/nucleo/esquemas'
 import { db } from '@/lib/db'
-import { aNumero } from '@/lib/nucleo/dinero'
 
-export async function GET() {
+// GET /api/tasa-cambio — historial de tasas, más reciente primero.
+//
+// Este historial sirve solo para PROPONER la tasa del día. Nunca se usa para
+// recalcular un documento: cada venta, compra y pago guarda la tasa que se le
+// aplicó, y por eso un reporte del mes pasado da lo mismo hoy que mañana.
+export async function GET(req: NextRequest) {
   try {
-    const empresaId = await requireEmpresa()
+    const ctx = await exigirPermiso('organizacion.ver')
+    const { searchParams } = new URL(req.url)
+
     const tasas = await db.tasaCambio.findMany({
-      where: { empresaId },
+      where: {
+        organizacionId: ctx.organizacionId,
+        monedaRef: searchParams.get('moneda') ?? 'USD',
+      },
       orderBy: { fecha: 'desc' },
-      take: 30,
+      take: Math.min(Number(searchParams.get('limite') ?? 30), 365),
     })
-    return NextResponse.json({ tasas })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 401 })
+
+    return ok({ tasas })
+  } catch (error) {
+    return manejarError(error)
   }
 }
 
+// POST /api/tasa-cambio — registra o corrige la tasa de una fecha.
 export async function POST(req: NextRequest) {
   try {
-    const empresaId = await requireEmpresa()
-    const { fecha, monedaRef = 'USD', tasa, fuente = 'BCV' } = await req.json()
-    if (!fecha || !tasa) return NextResponse.json({ error: 'Fecha y tasa son requeridas' }, { status: 400 })
-    // Upsert: una tasa por (empresa, fecha, moneda)
-    const fechaDate = new Date(fecha)
-    const tasaRecord = await db.tasaCambio.upsert({
-      where: { empresaId_fecha_monedaRef: { empresaId, fecha: fechaDate, monedaRef } },
-      update: { tasa, fuente },
-      create: { empresaId, fecha: fechaDate, monedaRef, tasa, fuente },
-    })
-    return NextResponse.json({ tasa: tasaRecord })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 401 })
-  }
-}
+    const ctx = await exigirPermiso('organizacion.editar')
+    const datos = esquemaTasaCambio.parse(await req.json())
 
-// Obtener la tasa más reciente a una fecha dada
-export async function getTasaVigente(empresaId: string, fecha: Date, monedaRef = 'USD'): Promise<number | null> {
-  const tasa = await db.tasaCambio.findFirst({
-    where: { empresaId, monedaRef, fecha: { lte: fecha } },
-    orderBy: { fecha: 'desc' },
-  })
-  return tasa ? aNumero(tasa.tasa) : null
+    // Una sola tasa por (organización, fecha, moneda): si se corrige la del
+    // día, se sobrescribe. Los documentos ya emitidos conservan la suya.
+    const fecha = new Date(datos.fecha.toISOString().slice(0, 10))
+    const tasa = await db.tasaCambio.upsert({
+      where: {
+        organizacionId_fecha_monedaRef: {
+          organizacionId: ctx.organizacionId,
+          fecha,
+          monedaRef: datos.monedaRef,
+        },
+      },
+      update: { tasa: datos.tasa, fuente: datos.fuente },
+      create: {
+        organizacionId: ctx.organizacionId,
+        fecha,
+        monedaRef: datos.monedaRef,
+        tasa: datos.tasa,
+        fuente: datos.fuente,
+      },
+    })
+
+    return ok({ tasa }, 201)
+  } catch (error) {
+    return manejarError(error)
+  }
 }

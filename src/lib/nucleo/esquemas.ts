@@ -68,7 +68,7 @@ export const RUBROS = ['GENERAL', 'RESTAURANTE', 'ROPA', 'QUIOSCO'] as const
 export const esquemaCrearOrganizacion = z.object({
   nombre: zNombre,
   rubro: z.enum(RUBROS).default('GENERAL'),
-  // Datos fiscales de la Empresa 1:1 que se crea junto con la organización.
+  // Identidad fiscal del negocio.
   rif: zRif,
   direccion: z.string().trim().max(500).optional(),
   telefono: z.string().trim().max(50).optional(),
@@ -165,7 +165,6 @@ export const esquemaProducto = z
     stockMinimo: zDecimal({ min: '0' }).default('0'),
     puntoReorden: zDecimal({ min: '0' }).default('0'),
     temporadaId: zId.optional().nullable(),
-    cuentaInventarioId: zId.optional().nullable(),
     imagenUrl: z.string().url('URL inválida').optional().nullable(),
     /**
      * Variantes. Si viene vacío se crea una variante predeterminada, porque
@@ -251,6 +250,21 @@ export const esquemaMovimientoInventario = z
     message: 'Una entrada requiere costo unitario',
     path: ['costoUnitario'],
   })
+
+// ───────────────────────────────────────────────────────────────────────
+//  CLIENTES
+// ───────────────────────────────────────────────────────────────────────
+
+export const esquemaCliente = z.object({
+  nombre: zNombre,
+  // Opcional a propósito: el POS de un quiosco cobra a cliente de paso.
+  rif: zRif.optional().nullable(),
+  direccion: z.string().trim().max(500).optional().nullable(),
+  telefono: z.string().trim().max(50).optional().nullable(),
+  email: z.string().email('Correo inválido').optional().nullable(),
+  limiteCredito: zDecimal({ min: '0' }).default('0'),
+  diasCredito: z.number().int().min(0).max(365).default(0),
+})
 
 // ───────────────────────────────────────────────────────────────────────
 //  VENTAS Y POS
@@ -361,6 +375,7 @@ export type EntradaImpuesto = z.infer<typeof esquemaImpuesto>
 export type EntradaAtributo = z.infer<typeof esquemaAtributo>
 export type EntradaMovimientoManual = z.infer<typeof esquemaMovimientoInventario>
 export type EntradaTasaCambio = z.infer<typeof esquemaTasaCambio>
+export type EntradaCliente = z.infer<typeof esquemaCliente>
 export type EntradaVenta = z.infer<typeof esquemaVenta>
 export type EntradaLineaVenta = z.infer<typeof esquemaLineaVenta>
 export type EntradaCobro = z.infer<typeof esquemaCobro>

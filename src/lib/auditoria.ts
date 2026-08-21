@@ -1,11 +1,11 @@
 // Registro de auditoría para acciones sensibles: cierre/reapertura de
 // ejercicios, liquidaciones de personal, cambios de rol/equipo, edición de
-// la empresa y desactivación de registros. Solo ADMIN puede consultarlo.
+// el negocio y desactivación de registros. Requiere el permiso auditoria.ver.
 
 import { db } from '@/lib/db'
 
 export interface RegistrarAuditoriaInput {
-  empresaId: string
+  organizacionId: string
   userId: string
   userEmail: string
   accion: string
@@ -21,7 +21,7 @@ export async function registrarAuditoria(input: RegistrarAuditoriaInput) {
   try {
     await db.auditLog.create({
       data: {
-        empresaId: input.empresaId,
+        organizacionId: input.organizacionId,
         userId: input.userId,
         userEmail: input.userEmail,
         accion: input.accion,
@@ -35,9 +35,9 @@ export async function registrarAuditoria(input: RegistrarAuditoriaInput) {
   }
 }
 
-export async function listarAuditoria(empresaId: string, opts: { accion?: string; limit?: number } = {}) {
+export async function listarAuditoria(organizacionId: string, opts: { accion?: string; limit?: number } = {}) {
   return db.auditLog.findMany({
-    where: { empresaId, ...(opts.accion ? { accion: opts.accion } : {}) },
+    where: { organizacionId, ...(opts.accion ? { accion: opts.accion } : {}) },
     orderBy: { createdAt: 'desc' },
     take: opts.limit || 200,
   })
