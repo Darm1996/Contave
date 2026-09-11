@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser, setSessionCookie, requireAuth, requireEmpresaRole } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { CUENTAS_VEN_NIF } from '@/lib/contabilidad/plan-cuentas-ven-nif'
+import { CUENTAS_RESTAURANTE } from '@/lib/contabilidad/plan-cuentas-restaurante'
 import { registrarAuditoria } from '@/lib/auditoria'
+
+// Plantillas de cuentas adicionales por tipo de negocio, que se agregan
+// encima del catálogo base VEN-NIF al crear una empresa.
+const PLANTILLAS_ADICIONALES: Record<string, typeof CUENTAS_RESTAURANTE> = {
+  RESTAURANTE: CUENTAS_RESTAURANTE,
+}
 
 // Límite máximo de empresas por usuario (plan estándar)
 const MAX_EMPRESAS_POR_USUARIO = 5
@@ -91,8 +98,12 @@ export async function POST(req: NextRequest) {
     // que usa el seed de demo). Antes se clonaba el plan de cuentas de "la
     // primera empresa que no sea la nueva" en todo el sistema, lo cual podía
     // filtrar personalizaciones de un tenant ajeno hacia una empresa nueva.
+    // Si se indica una plantilla de tipo de negocio (ej. RESTAURANTE), se
+    // agregan sus cuentas adicionales encima del catálogo base.
+    const plantillaAdicional = body.plantilla ? PLANTILLAS_ADICIONALES[body.plantilla] : undefined
+    const cuentasACrear = plantillaAdicional ? [...CUENTAS_VEN_NIF, ...plantillaAdicional] : CUENTAS_VEN_NIF
     await db.cuenta.createMany({
-      data: CUENTAS_VEN_NIF.map((c) => ({
+      data: cuentasACrear.map((c) => ({
         empresaId: empresa.id,
         codigo: c.codigo,
         nombre: c.nombre,
