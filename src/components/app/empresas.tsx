@@ -33,6 +33,7 @@ export function Empresas() {
   const [form, setForm] = useState({
     nombre: '', rif: '', direccion: '', telefono: '', email: '',
     esAgenteRetencionIVA: true, esContribuyenteEspecial: false, alicuotaIVA: 16, monedaFuncional: 'VES',
+    plantilla: '',
   })
 
   const esSuperAdmin = user?.role === 'SUPER_ADMIN'
@@ -74,7 +75,7 @@ export function Empresas() {
     if (r.ok && r.data) {
       toast.success('Empresa creada con plan de cuentas VEN-NIF clonado')
       setShowForm(false)
-      setForm({ nombre: '', rif: '', direccion: '', telefono: '', email: '', esAgenteRetencionIVA: true, esContribuyenteEspecial: false, alicuotaIVA: 16, monedaFuncional: 'VES' })
+      setForm({ nombre: '', rif: '', direccion: '', telefono: '', email: '', esAgenteRetencionIVA: true, esContribuyenteEspecial: false, alicuotaIVA: 16, monedaFuncional: 'VES', plantilla: '' })
       await cargar()
       // Si no había ninguna empresa activa (ej. primera empresa del usuario),
       // activar automáticamente la que se acaba de crear. Sin esto, el resto
@@ -185,6 +186,13 @@ export function Empresas() {
               <select className="w-full h-9 px-3 rounded-md border border-input bg-background" value={form.monedaFuncional} onChange={(e) => setForm({ ...form, monedaFuncional: e.target.value })}>
                 <option value="VES">Bolívares (Bs.)</option>
                 <option value="USD">Dólares (USD)</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Tipo de negocio</Label>
+              <select className="w-full h-9 px-3 rounded-md border border-input bg-background" value={form.plantilla} onChange={(e) => setForm({ ...form, plantilla: e.target.value })}>
+                <option value="">General (solo plan de cuentas VEN-NIF)</option>
+                <option value="RESTAURANTE">Restaurante (agrega cuentas de alimentos, bebidas, delivery y propinas)</option>
               </select>
             </div>
             <div className="md:col-span-2 space-y-2 pt-2 border-t">
