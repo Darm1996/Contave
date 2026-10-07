@@ -1,0 +1,22 @@
+// Motor de cálculo de nómina para Venezuela. Módulo puro: sin base de datos,
+// sin UI y sin red. Recibe datos + parámetros vigentes y devuelve resultado,
+// desglose del cálculo, base legal y alertas.
+export * from './decimal'
+export * from './tipos'
+export * from './fechas'
+export * from './parametros'
+export * from './catalogo-parametros'
+export * from './criterios'
+export * from './conceptos'
+export * from './salario'
+export * from './jornada'
+export * from './vacaciones'
+export * from './parafiscales'
+export * from './prestaciones'
+export * from './utilidades'
+export * from './islr'
+export * from './proteccion-familia'
+export * from './recibo'
+export * from './liquidacion'
+export * from './declaraciones'
+export * from './feriados'

@@ -4,39 +4,10 @@
 > público colegiado, y cada parámetro verificado contra la Gaceta Oficial
 > vigente antes de procesar un período.
 
-Estado: **PROPUESTA — pendiente de aprobación.** No se ha modificado
-`prisma/schema.prisma` ni el código existente. Al aprobar esta fase se
-integran los modelos y empieza la Fase 2 (motor de cálculo + pruebas).
-
----
-
-## 0. Punto de partida: lo que ya existe en ContaVE
-
-ContaVE ya tiene un módulo de nómina (`src/lib/contabilidad/nomina.ts`,
-`nomina-lottt.ts`, modelos `Empleado`, `Nomina`, `NominaDetalle`, `Vacacion`,
-`Liquidacion`). Lo revisé contra el prompt maestro y **no sirve como base del
-motor nuevo**, por estas razones:
-
-| # | Problema en el módulo actual | Regla incumplida |
-|---|---|---|
-| 1 | Todos los montos son `Float` | Precisión monetaria (nunca float) |
-| 2 | IVSS trabajador 4 % escrito en el código; % patronales como columnas de `Empresa` sin vigencia ni fuente | Tabla de parámetros con vigencia |
-| 3 | IVSS calculado sobre salario proporcional, sin contar lunes ni tope de 5 salarios mínimos | Ley del Seguro Social |
-| 4 | No calcula el RPE (paro forzoso) | Ley del RPE |
-| 5 | FAOV sobre salario normal (debe ser integral) | Ley RPVH |
-| 6 | INCES patronal mensual, sin el umbral de 5+ trabajadores | Ley del INCES |
-| 7 | No existe la contribución especial de pensiones (9 %) | GO 6.806 Ext. / Decreto 4.952 |
-| 8 | Garantía de prestaciones = 5 días al mes, no 15 días por trimestre con el salario del último mes; sin días adicionales ni intereses | LOTTT Art. 142 a, b; Art. 143 |
-| 9 | Retroactivo = 30 días × años **decimales** (debe ser por año o fracción > 6 meses) | LOTTT Art. 142 c |
-| 10 | Alícuota de utilidades = salario diario × % fijo (no usa días de utilidades ni la alícuota de BV) | LOTTT Art. 104 |
-| 11 | Vacaciones pendientes = "contar registros", sin calendario de aniversarios ni feriados | LOTTT Arts. 190-192 |
-| 12 | Sin cestaticket en USD/tasa BCV, sin conceptos con banderas, sin horas extra, bono nocturno, feriados | LOTTT Arts. 117-120; Ley de Alimentación |
-| 13 | El período procesado no se bloquea ni se puede reversar documentadamente | Auditoría |
-
-**Propuesta:** construir un módulo nuevo `src/lib/nomina/` (motor puro en
-`src/lib/nomina/engine/`) con tablas nuevas, migrar los empleados existentes
-con un script, y retirar el módulo viejo cuando el nuevo esté en producción
-(ver pregunta P1 al final).
+Estado: **base de la Fase 2** — proyecto **independiente** (no forma parte
+de ningún otro sistema). Las tablas de empresa, usuarios y bitácora son
+propias de esta app. El esquema SQL (Supabase/Postgres) se escribe en la
+Fase 3, junto con los servicios.
 
 ---
 
@@ -56,10 +27,9 @@ con un script, y retirar el módulo viejo cuando el nuevo esté en producción
    desglose guarda los intermedios con precisión completa).
 4. **Doble moneda.** Toda línea guarda `montoOrigen` + `monedaOrigen` +
    `tasaBCV` + `fechaTasa` + `montoVES`.
-5. **Multiempresa.** Todo cuelga de `empresaId` y se filtra en la capa de
-   servicio, igual que el resto de ContaVE (`UserEmpresa` ya da el acceso del
-   contador a varias empresas). La app conecta con Prisma, no con el cliente
-   de Supabase, así que RLS queda como defensa adicional opcional.
+5. **Multiempresa.** Todo cuelga de `empresaId`. Un contador accede a varias
+   empresas clientes mediante `UsuarioEmpresa`, y Supabase Row Level Security
+   restringe cada fila a los usuarios de su empresa.
 6. **Cerrado = inmutable.** Un período `CERRADO` no se edita; se corrige con
    un período de `REVERSO` que referencia al original. Se refuerza con un
    trigger en Postgres que rechaza `UPDATE/DELETE` sobre líneas de períodos
@@ -109,8 +79,8 @@ erDiagram
 
 ## 3. Tablas
 
-Notación: `D(18,2)` = `Decimal @db.Decimal(18,2)`. Todas las tablas llevan
-`id cuid`, `createdAt`, `updatedAt` (omitidos abajo).
+Notación: `D(18,2)` = `numeric(18,2)` de Postgres. Todas las tablas llevan
+`id uuid`, `createdAt`, `updatedAt` (omitidos abajo).
 
 ### 3.1 Parámetros y tablas de referencia
 
@@ -142,15 +112,24 @@ Reglas:
 
 #### `TasaBCV` (nacional, una por fecha y moneda)
 `fecha Date`, `moneda (USD|EUR)`, `tasa D(20,8)`, `fuente`,
-`registradaPorId`. Única por `(fecha, moneda)`. La tabla actual `TasaCambio`
-(por empresa, `Float`) se deja para el módulo contable; ver P4.
+`registradaPorId`. Única por `(fecha, moneda)`.
 
 #### `DiaFeriado`
 `fecha`, `nombre`, `tipo (LOTTT_ART_184 | FIESTAS_NACIONALES | DECRETADO | LOCAL)`,
 `empresaId?` (feriados regionales/locales), `fuente`. Se generan por año
 (Carnaval y Semana Santa calculados desde la fecha de Pascua) y son editables.
 
-### 3.2 Empresa
+### 3.2 Empresa, usuarios y acceso
+
+#### `Empresa`
+`rif` (único), `razonSocial`, `direccion`, `telefono`, `email`,
+`contribuyenteEspecial Boolean`, `activa`.
+
+#### `Usuario` / `UsuarioEmpresa`
+`Usuario` se apoya en Supabase Auth (`auth.users`); `UsuarioEmpresa` asigna
+el rol por empresa: `ADMIN`, `CONTADOR`, `CONSULTA`. Solo `ADMIN` puede
+cerrar/reversar períodos y pasar alertas bloqueantes (ej. despido de un
+trabajador inamovible), dejando constancia en la bitácora.
 
 #### `ConfigNominaEmpresa` (1 : 1 con `Empresa`, no ensucia la tabla existente)
 | Campo | Tipo | Nota |
@@ -160,7 +139,6 @@ Reglas:
 | numeroPatronalIVSS | String? | |
 | numeroAportanteBANAVIH | String? | |
 | numeroINCES | String? | |
-| contribuyenteEspecial | — | Se lee de `Empresa.esContribuyenteEspecial` (ya existe) |
 | exoneradaRNE | Boolean | Exoneración de la contribución de pensiones |
 | rneNumero / rneVence | String? / Date? | Al vencer, el motor deja de exonerar y alerta |
 | aplicaLOPCYMAT | Boolean | `false` por defecto |
@@ -180,7 +158,7 @@ Reglas:
 `tipoContrato (INDETERMINADO|DETERMINADO|OBRA)`, `fechaFinContrato?`,
 `frecuenciaPago`, `banco`, `tipoCuenta`, `numeroCuenta`,
 `estatus (ACTIVO|VACACIONES|REPOSO|LICENCIA|EGRESADO)`,
-`fechaEgreso?`, `motivoEgreso?`, `empleadoLegacyId?` (migración).
+`fechaEgreso?`, `motivoEgreso?`.
 Única `(empresaId, cedula, fechaIngreso)`: un reingreso es una relación
 laboral nueva, con su propio libro de prestaciones.
 
@@ -233,7 +211,7 @@ el AR-I más reciente vigente a la fecha de pago.
 | basePensiones | Boolean | |
 | baseIslr | Boolean | |
 | basePrestaciones | Boolean | |
-| usoContable | String? | Para el asiento automático (reusa `asientos-engine`) |
+| cuentaContable | String? | Código contable opcional para exportar el asiento a un sistema externo |
 | activo | Boolean | |
 
 Las banderas son editables, pero el cambio queda en bitácora y **no afecta
@@ -346,8 +324,8 @@ LIBERACION_HIPOTECA | EDUCACION | SALUD)`, `monto`, `saldoGarantiaAlMomento`,
 `estado (PENDIENTE | PROGRAMADO | DISFRUTADO | PAGADO_EN_LIQUIDACION)`,
 `fechaSalida?`, `fechaReintegro?`, `diasDescansoYFeriados`,
 `salarioNormalDiario`, `montoVacaciones`, `montoBono`, `periodoNominaId?`.
-Única `(trabajadorId, anioServicio)`. Reemplaza el "contar registros" del
-módulo viejo y permite saber exactamente qué años quedan pendientes.
+Única `(trabajadorId, anioServicio)`. Permite saber exactamente qué años de
+vacaciones quedan pendientes al liquidar.
 
 ### 3.8 Utilidades
 
@@ -386,8 +364,7 @@ lugar que la nómina ordinaria.
 | LOPCYMAT)`, `anio`, `mes?`, `trimestre?`, `base`, `montoPatronal`,
 `montoTrabajador`, `total`, `fechaVencimiento`, `fechaPago?`,
 `referenciaPago?`, `archivoGenerado?`, `estado (PENDIENTE|DECLARADA|PAGADA)`,
-`detalle Json` (por trabajador). Alimenta el calendario de obligaciones (se
-integra con el módulo existente `vencimientos-fiscales`).
+`detalle Json` (por trabajador). Alimenta el calendario de obligaciones.
 
 #### `ComprobanteARC`
 `trabajadorId`, `anio`, `totalRemuneraciones`, `totalRetenido`,
@@ -398,8 +375,8 @@ Registro básico LOPCYMAT: trabajador, fecha de elección, vencimiento,
 número de registro INPSASEL; comité con fecha de constitución y miembros.
 
 #### Bitácora
-Se reutiliza `AuditLog` (ya existe) agregando dos columnas opcionales
-`antes Json?` y `despues Json?`. Cambio no destructivo.
+`Bitacora`: `empresaId`, `usuarioId`, `accion`, `entidad`, `entidadId`,
+`antes Json?`, `despues Json?`, `motivo?`, `createdAt`. Solo inserción.
 
 ---
 
@@ -468,7 +445,7 @@ Jueves y Viernes Santo, 19-abr, 1-may, 24-jun, 5-jul, 24-jul, 12-oct,
    `Recibo` + `ReciboLinea` con desglose → estado CALCULADO.
 4. Revisar (estado REVISADO; se puede recalcular).
 5. **Cerrar**: se bloquea, se guarda `parametrosUsados`, se genera el asiento
-   contable (reusa `asientos-engine`), y si es fin de trimestre se registran
+   contable exportable, y si es fin de trimestre se registran
    los depósitos `GARANTIA_TRIMESTRAL` en el libro de prestaciones.
 6. Corrección = período `REVERSO` con líneas negadas + nuevo período.
 
@@ -499,29 +476,21 @@ Todas quedan configurables por empresa. Necesito tu confirmación.
 
 ---
 
-## 7. Preguntas que necesito que me respondas antes de la Fase 2
+## 7. Decisiones del usuario
 
-- **P1. Integración.** ¿Lo construyo **dentro de ContaVE** (recomendado: ya
-  tiene multiempresa, login, auditoría, plan de cuentas y asientos) con
-  tablas nuevas, migrando los empleados actuales y retirando el módulo viejo
-  al final? ¿O prefieres una app separada?
-- **P2.** Las decisiones A1–A14 (sobre todo A8, A11 y A14, donde no
-  propongo un defecto firme).
-- **P3. Parámetros PENDIENTES:** valor de la Unidad Tributaria, umbral de
-  retención ISLR en UT, tasa de interés de prestaciones BCV de los meses que
-  vayamos a procesar, alícuota LOPCYMAT (o dejarla desactivada) y días de
-  utilidades de la empresa de ejemplo.
-- **P4. Tasa BCV.** ¿Unifico la tabla actual `TasaCambio` (por empresa,
-  `Float`) con la nueva `TasaBCV` nacional, o las dejo separadas por ahora?
+- **Proyecto independiente** (respuesta a P1): no se integra con ningún
+  sistema existente.
+- Las reglas A1–A14 quedan implementadas como criterios configurables
+  (`src/engine/criterios.ts`) con el defecto propuesto. **A8, A11 y A14 siguen
+  pendientes de confirmación.**
+- Parámetros pendientes de valor oficial: ver `PARAMETROS_PENDIENTES` en
+  `src/engine/catalogo-parametros.ts`.
 
-## 8. Siguientes fases (después de tu aprobación)
+## 8. Fases
 
-- **Fase 2:** modelos en `schema.prisma`, `decimal.js`, motor puro
-  `src/lib/nomina/engine/` (una función por regla con su artículo) y pruebas
-  Vitest de los casos límite del prompt (< 3 meses, 6 meses y 1 día, mes con
-  5 lunes, salario sobre el tope IVSS, despido injustificado, trabajadora
-  inamovible, cambio de parámetro a mitad de mes).
-- **Fase 3:** servicios + API + interfaz del MVP.
+- **Fase 2 (hecha):** motor puro `src/engine/` + pruebas. Ver `FASE-2-motor.md`.
+- **Fase 3:** esquema SQL Supabase (con RLS y trigger de períodos cerrados),
+  servicios, API e interfaz del MVP (React + TypeScript + Tailwind).
 - **Fase 4:** reportes (recibo PDF, FAOV, INCES, pensiones, ISLR, ARC,
   constancia), calendario y panel.
 - **Fase 5:** datos semilla (empresa con 5 trabajadores y nómina mensual
